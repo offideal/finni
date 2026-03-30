@@ -32,7 +32,7 @@ export default function ProjectVersions({ params }: { params: { id: string } }) 
 
   const handleClone = async (versionId: string) => {
     try {
-      const newVersion = await cloneVersion.mutateAsync({ data: { sourceVersionId: versionId } });
+      const newVersion = await cloneVersion.mutateAsync({ projectId, data: { sourceVersionId: versionId } });
       queryClient.invalidateQueries({ queryKey: getGetVersionsQueryKey(projectId) });
       toast({ title: "Version cloned", description: `Created new draft version v${newVersion.versionNumber}` });
     } catch (error: any) {
@@ -43,13 +43,11 @@ export default function ProjectVersions({ params }: { params: { id: string } }) 
   const handleLock = async (versionId: string) => {
     if (!confirm("Are you sure you want to lock this version? This action cannot be undone and will make all products read-only.")) return;
     try {
-      await lockVersion.mutateAsync({ data: { notes: "Manually locked" } }); // Lock endpoint should ideally take versionId, but based on spec it seems to just lock something or maybe needs versionId in path?
-      // Wait, api schemas: LockVersionRequest has notes. Let's check api.ts to see what useLockVersion expects.
-      // Assuming useLockVersion expects versionId in the path. Let's check what orval generated.
-      // Wait, if I don't know the exact signature, I'll pass versionId just in case.
-      // Ah, I see `useLockVersion(versionId, ...)` from hook patterns or `lockVersion.mutateAsync({ id: versionId })`. Let's assume `id: versionId, data: {}`
-    } catch (e) {
-      // ignore
+      await lockVersion.mutateAsync({ versionId, data: { notes: "Manually locked" } });
+      queryClient.invalidateQueries({ queryKey: getGetVersionsQueryKey(projectId) });
+      toast({ title: "Version locked" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Lock failed", description: e?.message });
     }
   };
 

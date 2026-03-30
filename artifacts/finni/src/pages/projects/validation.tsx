@@ -30,16 +30,12 @@ export default function ProjectValidation({ params }: { params: { id: string; ve
 
   const handleLock = async () => {
     try {
-      await lockVersion.mutateAsync({ data: { notes: "Locked after validation pass" } } as any); 
-      // API expects the mutation to somehow know which version. 
-      // If it's a global mutation we might need to pass versionId in path params via custom fetch config or it's mapped in body.
-      // Assuming Orval mapped it correctly based on schema, maybe:
-      // mutateAsync({ versionId, data: { notes: "..." } }) if path param.
+      await lockVersion.mutateAsync({ versionId, data: { notes: "Locked after validation pass" } });
       queryClient.invalidateQueries({ queryKey: getGetVersionQueryKey(versionId) });
       queryClient.invalidateQueries({ queryKey: getGetVersionsQueryKey(projectId) });
       toast({ title: "Version locked successfully", description: "This version is now read-only." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Lock failed" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Lock failed", description: e?.message });
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useGetMe } from "@workspace/api-client-react";
-import { AuthUser } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AuthUser } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
 
 interface AuthContextType {

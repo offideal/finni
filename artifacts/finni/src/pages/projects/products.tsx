@@ -164,13 +164,13 @@ export default function ProjectProducts({ params }: { params: { id: string; vers
   const handleCreate = async () => {
     try {
       await createProduct.mutateAsync({
+        versionId,
         data: {
-          versionId, // If needed in body, though it might be inferred if the API requires it
           name: "New Product",
           category: "concrete",
           quantityValue: 0,
           quantityUnit: "kg"
-        } as any // The exact schema depends on API. Assuming createProduct endpoint maps it.
+        }
       });
       queryClient.invalidateQueries({ queryKey: getGetProductsQueryKey(versionId) });
     } catch (e) {
@@ -198,7 +198,7 @@ export default function ProjectProducts({ params }: { params: { id: string; vers
 
   const handleDuplicate = async (productId: string) => {
     try {
-      await duplicateProduct.mutateAsync({ data: { productId } } as any); // Assuming signature
+      await duplicateProduct.mutateAsync({ id: productId });
       queryClient.invalidateQueries({ queryKey: getGetProductsQueryKey(versionId) });
     } catch (e) {
       toast({ variant: "destructive", title: "Duplicate failed" });

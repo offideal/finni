@@ -14,7 +14,7 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      await logoutMutation.mutateAsync({});
+      await logoutMutation.mutateAsync();
       queryClient.clear();
       window.location.href = "/login";
     } catch (e) {
