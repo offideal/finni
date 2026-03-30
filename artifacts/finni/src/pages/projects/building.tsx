@@ -74,6 +74,7 @@ export default function ProjectBuilding({ params }: { params: { id: string } }) 
   const onSubmit = async (data: z.infer<typeof buildingSchema>) => {
     try {
       await upsertBuilding.mutateAsync({
+        projectId,
         data: {
           grossAreaM2: data.grossAreaM2 === "" ? null : Number(data.grossAreaM2),
           spaces: data.spaces.map(s => ({
