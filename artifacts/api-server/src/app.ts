@@ -37,7 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(
   session({
-    store: new PgSession({ pool, createTableIfMissing: true }),
+    store: new PgSession({ pool, createTableIfMissing: false }),
     secret: process.env["SESSION_SECRET"] ?? "finni-dev-secret-change-in-prod",
     resave: false,
     saveUninitialized: false,
