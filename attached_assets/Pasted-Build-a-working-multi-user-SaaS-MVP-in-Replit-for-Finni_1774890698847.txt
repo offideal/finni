@@ -1,0 +1,637 @@
+Build a working **multi-user SaaS MVP in Replit** for Finnish construction project CO₂ calculation and reporting. Keep it simple, usable, and production-shaped, but do not overengineer. The app should have a clean, modern UI and a straightforward workflow that works end to end.
+
+**Product purpose**
+This is a SaaS tool for Finnish building projects. Users create projects, enter building and product data, attach emission factors, calculate lifecycle CO₂ by module, validate the data, lock a version, and export a report. The system must be deterministic, auditable, and version-based so results are verifiable for official use.
+
+**Implementation goals**
+
+* Multi-user SaaS aware
+* Simple architecture
+* Working login and tenant/workspace separation
+* Good UI and table-based data entry
+* Deterministic calculation logic
+* Version locking and audit trail
+* PDF and XLSX export
+* No IFC/BIM import in MVP
+* No API integrations in MVP
+* No overengineering
+
+**Recommended stack for Replit**
+Use a stack that works fast in Replit:
+
+* Frontend: React + Vite + TypeScript
+* UI: Tailwind CSS + simple component library or custom clean components
+* Backend: Node.js + Express + TypeScript
+* Database: SQLite with Prisma ORM for simplicity
+* Auth: simple email/password auth with session or JWT
+* File export: server-side PDF and XLSX generation
+* Seed data: include a hardcoded generic emission factor library
+
+If needed for speed, a monorepo or single full-stack app is fine. Prefer simple structure over separation.
+
+---
+
+## Core SaaS model
+
+### Tenant model
+
+* `Tenant` = organization/company
+* Each user belongs to exactly one tenant in the MVP
+* All projects belong to one tenant
+* Data must never leak across tenants
+* Enforce tenant filtering in all backend queries
+
+### Workspace model
+
+* `Project` = building project/workspace
+* Each project contains:
+
+  * building data
+  * versions
+  * products
+  * emission links
+  * calculation results
+  * reports
+
+### Roles
+
+Implement these roles:
+
+* `admin`: manage users inside tenant, full access
+* `editor`: create and edit projects, buildings, products, emission links
+* `reviewer`: validate, approve, and lock versions
+* `viewer`: read-only access
+
+Hide or disable actions in UI based on role.
+
+---
+
+## Required pages and flow
+
+Build the following working pages with clean navigation:
+
+### 1. Login page
+
+* Email
+* Password
+* Sign in button
+* Clean, minimal layout
+* After login, go to Project List
+
+### 2. Project List page
+
+* Show tenant name at top
+* Button: `New Project`
+* Table/cards of projects with:
+
+  * project name
+  * location country
+  * building type
+  * latest version status
+  * updated date
+* Click project to open dashboard
+
+### 3. New/Edit Project modal or page
+
+Fields:
+
+* project name
+* location country, default `FI`
+* building type
+
+On create:
+
+* automatically create first version `v1` in `draft` state
+
+### 4. Project Dashboard page
+
+Show:
+
+* project info
+* latest version
+* version list
+* building summary
+* calculation summary
+* validation status
+* actions:
+
+  * edit building
+  * open products
+  * open calculation
+  * open validation
+  * open versions
+  * export reports
+
+### 5. Building Editor page
+
+Fields:
+
+* gross area m2
+* optional simple space list for MVP:
+
+  * space name
+  * area m2
+    Use a simple editable table for spaces.
+    No IFC import.
+
+### 6. Product List page
+
+This is a key page and should be table-first, fast, and usable.
+Show products for the selected version in an editable table with columns:
+
+* name
+* category
+* quantity value
+* quantity unit
+* emission factor source
+* source type
+* module split
+* calculated CO₂ total
+* status / validation
+
+Support:
+
+* add row
+* edit row inline
+* delete row
+* attach emission factor
+* duplicate row
+* read-only if version is locked
+
+Use categories like:
+
+* concrete
+* steel
+* wood
+* insulation
+* glass
+* gypsum
+* HVAC
+* electrical
+* site
+* other
+
+Units must be constrained to:
+
+* kg
+* m2
+* m3
+
+### 7. Emission Data Selector
+
+When attaching an emission factor to a product, open a side panel or modal.
+Show seed library of emission factors with:
+
+* source name
+* source type (`generic` or `EPD`)
+* unit
+* co2e per unit
+  User selects one.
+  Only allow selecting factors where unit matches the product unit.
+  Store both the selected factor reference and a frozen snapshot of the numeric value used by that version.
+
+### 8. Calculation View
+
+Show deterministic module-level CO₂ breakdown for current version.
+Modules for MVP:
+
+* A1-A3
+* A4
+* A5
+* B
+* C
+
+For each product, store or edit distribution percentages/values per module in a simple way. To keep MVP simple:
+
+* each product has numeric values for each module directly
+* total CO₂ for each module = quantity × factor × module_share
+* module shares should sum to 1.0 for each product, or user can use a preset distribution
+* provide a simple preset fill button, for example default all to A1-A3 = 1.0 and others = 0
+
+Show:
+
+* formula clearly
+* totals by module
+* grand total
+* product-level rows
+* warning if module shares do not sum correctly
+
+### 9. Validation Panel
+
+Show real-time validation list for current version.
+Required checks:
+
+* project exists
+* building gross area exists
+* each product has name
+* each product has category
+* each product has quantity value > 0
+* each product has quantity unit
+* each product has emission factor attached
+* product unit matches emission factor unit
+* module shares sum to 1.0
+* locked versions cannot be edited
+
+If validation fails:
+
+* reviewer cannot lock version
+
+### 10. Version History page
+
+Show versions as a clear list:
+
+* version number
+* status (`draft` or `locked`)
+* created at
+* created by
+* locked at
+* locked by
+* notes
+  Actions:
+* create new version from existing locked version by cloning all version data
+* open version
+* lock version if reviewer/admin and validation passes
+
+Important:
+
+* locked version becomes fully immutable
+* products, building data, factor snapshots, calculations remain frozen for auditability
+
+### 11. Report Export page
+
+Allow export for current version:
+
+* PDF: climate report
+* XLSX: product list + calculation breakdown + validation summary
+
+Show download buttons and list previously generated reports.
+
+---
+
+## Core data model
+
+Implement these concrete entities.
+
+### Tenant
+
+* id
+* name
+* createdAt
+
+### User
+
+* id
+* email
+* passwordHash
+* fullName
+* role (`admin`, `editor`, `reviewer`, `viewer`)
+* tenantId
+* createdAt
+
+### Project
+
+* id
+* tenantId
+* name
+* locationCountry default `FI`
+* buildingType
+* createdByUserId
+* createdAt
+* updatedAt
+
+### Building
+
+* id
+* projectId
+* grossAreaM2
+* createdAt
+* updatedAt
+
+### Space
+
+* id
+* buildingId
+* name
+* areaM2
+
+### Version
+
+* id
+* projectId
+* versionNumber
+* status (`draft`, `locked`)
+* createdByUserId
+* createdAt
+* lockedAt nullable
+* lockedByUserId nullable
+* notes nullable
+
+### Product
+
+* id
+* versionId
+* name
+* category
+* quantityValue
+* quantityUnit (`kg`, `m2`, `m3`)
+* emissionFactorId nullable
+* emissionSourceType nullable (`generic`, `EPD`)
+* emissionSourceName nullable
+* emissionUnitSnapshot nullable
+* co2ePerUnitSnapshot nullable
+* moduleA1A3Share default 1
+* moduleA4Share default 0
+* moduleA5Share default 0
+* moduleBShare default 0
+* moduleCShare default 0
+* createdAt
+* updatedAt
+
+### EmissionFactor
+
+Seed this table with demo data.
+
+* id
+* sourceType (`generic`, `EPD`)
+* sourceName
+* category
+* unit (`kg`, `m2`, `m3`)
+* co2ePerUnit
+* active boolean
+
+### CalculationResult
+
+Can be stored or generated on demand. Simpler option: calculate on demand and store summary snapshots when version is locked.
+Fields:
+
+* id
+* versionId
+* module (`A1-A3`, `A4`, `A5`, `B`, `C`)
+* co2eTotal
+
+### AuditLog
+
+* id
+* tenantId
+* userId
+* entityType
+* entityId
+* action
+* diffJson
+* createdAt
+
+### Report
+
+* id
+* versionId
+* type (`PDF`, `XLSX`)
+* filePath
+* createdByUserId
+* createdAt
+
+---
+
+## Business rules
+
+Implement these clearly:
+
+1. Every query must be scoped by `tenantId`
+2. A user only sees their own tenant’s data
+3. Every project belongs to one tenant
+4. Every version belongs to one project
+5. Products belong to one version, not directly to project
+6. Locked versions are fully read-only
+7. New version is created by cloning a source version
+8. Emission factor unit must match product unit
+9. When emission factor is attached, store snapshot values on the product row:
+
+   * emission source name
+   * source type
+   * unit snapshot
+   * co2e per unit snapshot
+10. Calculations must use the snapshot value, not live factor value
+11. CO₂ formula:
+
+* `product_total = quantityValue * co2ePerUnitSnapshot`
+* `module_total = product_total * moduleShare`
+
+12. Product module shares must sum to 1.0
+13. Version can only be locked if validation passes
+
+---
+
+## API routes
+
+Build simple REST endpoints.
+
+### Auth
+
+* `POST /api/auth/login`
+* `POST /api/auth/logout`
+* `GET /api/auth/me`
+
+### Users
+
+* `GET /api/users`
+* `POST /api/users`
+* `PATCH /api/users/:id`
+
+### Projects
+
+* `GET /api/projects`
+* `POST /api/projects`
+* `GET /api/projects/:id`
+* `PATCH /api/projects/:id`
+
+### Building
+
+* `GET /api/projects/:projectId/building`
+* `PUT /api/projects/:projectId/building`
+
+### Versions
+
+* `GET /api/projects/:projectId/versions`
+* `POST /api/projects/:projectId/versions/clone`
+* `POST /api/versions/:versionId/lock`
+* `GET /api/versions/:versionId`
+
+### Products
+
+* `GET /api/versions/:versionId/products`
+* `POST /api/versions/:versionId/products`
+* `PATCH /api/products/:id`
+* `DELETE /api/products/:id`
+
+### Emission factors
+
+* `GET /api/emission-factors`
+* optional filters: category, unit, sourceType
+
+### Validation
+
+* `GET /api/versions/:versionId/validation`
+
+### Calculations
+
+* `GET /api/versions/:versionId/calculations`
+
+### Reports
+
+* `POST /api/versions/:versionId/reports/pdf`
+* `POST /api/versions/:versionId/reports/xlsx`
+* `GET /api/versions/:versionId/reports`
+
+### Audit
+
+* `GET /api/projects/:projectId/audit`
+  or
+* `GET /api/versions/:versionId/audit`
+
+---
+
+## UI/UX requirements
+
+Build a working UI, not just backend.
+
+### Design principles
+
+* clean SaaS layout
+* left sidebar or top nav
+* fast table editing
+* clear status colors for draft/locked
+* readable Finnish-oriented business UI
+* no flashy effects
+* prioritize usability and clarity
+
+### Important usability details
+
+* always show current project and current version in header
+* show version status badge everywhere relevant
+* disable edit controls when version is locked
+* validation issues should be visible before locking
+* show formulas and totals in a transparent way
+* use confirmations for locking version
+* use toasts/snackbars for success/error states
+* include empty states and seed/demo content
+
+### Suggested navigation
+
+* Projects
+* Building
+* Products
+* Calculations
+* Validation
+* Versions
+* Reports
+* Admin (only for admins)
+
+---
+
+## Seed/demo content
+
+Include demo seed data so the app works immediately:
+
+* 1 demo tenant: `Demo Rakennus Oy`
+* 4 demo users:
+
+  * [admin@demo.fi](mailto:admin@demo.fi) / password: demo123
+  * [editor@demo.fi](mailto:editor@demo.fi) / password: demo123
+  * [reviewer@demo.fi](mailto:reviewer@demo.fi) / password: demo123
+  * [viewer@demo.fi](mailto:viewer@demo.fi) / password: demo123
+* 1 demo project
+* 1 building with gross area
+* a few demo products
+* a few emission factors for categories like concrete, steel, wood
+
+Example emission factors:
+
+* generic concrete / m3 / 300
+* generic steel / kg / 2.2
+* generic wood / m3 / 120
+* EPD low-carbon concrete / m3 / 250
+  Use simple demo numbers.
+
+---
+
+## Audit logging
+
+Add audit logging for important actions:
+
+* login
+* project create/update
+* building update
+* product create/update/delete
+* emission factor attached/changed
+* version cloned
+* version locked
+* report generated
+  Store a simple JSON diff or action payload.
+
+---
+
+## Export requirements
+
+### PDF
+
+Generate a simple but professional report including:
+
+* tenant name
+* project name
+* version number
+* building summary
+* validation summary
+* CO₂ totals by module
+* product table
+* generated timestamp
+
+### XLSX
+
+Generate workbook with sheets:
+
+* `Summary`
+* `Products`
+* `Calculations`
+* `Validation`
+
+---
+
+## Technical guardrails
+
+* Keep code simple and readable
+* Do not build IFC import
+* Do not build background jobs
+* Do not build event sourcing
+* Do not build microservices
+* Do not build advanced permissions beyond the 4 roles
+* Do not build complex workflow engines
+* Do not build external integrations
+* Do not build multi-country compliance
+* Do not overnormalize if it slows MVP delivery
+* Prefer explicit code over abstraction-heavy architecture
+
+---
+
+## What to deliver
+
+Build the complete working MVP with:
+
+1. full-stack code
+2. database schema and migrations
+3. seed script
+4. working auth
+5. tenant-safe queries
+6. all pages listed above
+7. responsive UI
+8. report export
+9. validation logic
+10. version lock logic
+11. audit logging
+12. clear README with setup/run instructions for Replit
+
+Also:
+
+* create a polished demo-ready homepage after login
+* make the app easy to test immediately with seeded users
+* ensure the default seeded project can be opened and used without extra setup
+
+Finally, make sensible implementation decisions yourself where details are missing, but stay consistent with this spec and keep the MVP simple, concrete, and usable.
