@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Finni CO2 Calculator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: users
+  - name: projects
+  - name: building
+  - name: versions
+  - name: products
+  - name: emission-factors
+  - name: validation
+  - name: calculations
+  - name: reports
+  - name: audit
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,593 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users:
+    get:
+      operationId: getUsers
+      tags: [users]
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /projects:
+    get:
+      operationId: getProjects
+      tags: [projects]
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectSummary"
+    post:
+      operationId: createProject
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{projectId}/building:
+    get:
+      operationId: getBuilding
+      tags: [building]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Building data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Building"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: upsertBuilding
+      tags: [building]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBuildingRequest"
+      responses:
+        "200":
+          description: Building upserted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Building"
+
+  /projects/{projectId}/versions:
+    get:
+      operationId: getVersions
+      tags: [versions]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Version"
+
+  /projects/{projectId}/versions/clone:
+    post:
+      operationId: cloneVersion
+      tags: [versions]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloneVersionRequest"
+      responses:
+        "201":
+          description: Cloned version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+
+  /versions/{versionId}:
+    get:
+      operationId: getVersion
+      tags: [versions]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Version details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+
+  /versions/{versionId}/lock:
+    post:
+      operationId: lockVersion
+      tags: [versions]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockVersionRequest"
+      responses:
+        "200":
+          description: Locked version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /versions/{versionId}/products:
+    get:
+      operationId: getProducts
+      tags: [products]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /products/{id}/duplicate:
+    post:
+      operationId: duplicateProduct
+      tags: [products]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Duplicated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /emission-factors:
+    get:
+      operationId: getEmissionFactors
+      tags: [emission-factors]
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: unit
+          in: query
+          schema:
+            type: string
+        - name: sourceType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of emission factors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmissionFactor"
+
+  /versions/{versionId}/validation:
+    get:
+      operationId: getValidation
+      tags: [validation]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationResult"
+
+  /versions/{versionId}/calculations:
+    get:
+      operationId: getCalculations
+      tags: [calculations]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Calculation breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculationResult"
+
+  /versions/{versionId}/reports:
+    get:
+      operationId: getReports
+      tags: [reports]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+
+  /versions/{versionId}/reports/pdf:
+    post:
+      operationId: generatePdfReport
+      tags: [reports]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Generated PDF report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+
+  /versions/{versionId}/reports/xlsx:
+    post:
+      operationId: generateXlsxReport
+      tags: [reports]
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Generated XLSX report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+
+  /reports/{reportId}/download:
+    get:
+      operationId: downloadReport
+      tags: [reports]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /projects/{projectId}/audit:
+    get:
+      operationId: getAuditLog
+      tags: [audit]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [projects]
+      responses:
+        "200":
+          description: Dashboard summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +626,498 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required: [email, password]
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, reviewer, viewer]
+        tenantId:
+          type: string
+        tenantName:
+          type: string
+      required: [id, email, fullName, role, tenantId, tenantName]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, reviewer, viewer]
+        tenantId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, fullName, role, tenantId, createdAt]
+
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        fullName:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, reviewer, viewer]
+      required: [email, fullName, password, role]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [admin, editor, reviewer, viewer]
+
+    ProjectSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        locationCountry:
+          type: string
+        buildingType:
+          type: string
+        latestVersionStatus:
+          type: string
+          nullable: true
+        latestVersionNumber:
+          type: integer
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, locationCountry, buildingType, updatedAt, createdAt]
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        locationCountry:
+          type: string
+        buildingType:
+          type: string
+        tenantId:
+          type: string
+        createdByUserId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, locationCountry, buildingType, tenantId, createdByUserId, createdAt, updatedAt]
+
+    CreateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        locationCountry:
+          type: string
+          default: "FI"
+        buildingType:
+          type: string
+      required: [name, buildingType]
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        locationCountry:
+          type: string
+        buildingType:
+          type: string
+
+    Space:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        areaM2:
+          type: number
+      required: [id, name, areaM2]
+
+    Building:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        grossAreaM2:
+          type: number
+          nullable: true
+        spaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/Space"
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, projectId, spaces, updatedAt]
+
+    UpsertBuildingRequest:
+      type: object
+      properties:
+        grossAreaM2:
+          type: number
+          nullable: true
+        spaces:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              areaM2:
+                type: number
+            required: [name, areaM2]
+
+    Version:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        versionNumber:
+          type: integer
+        status:
+          type: string
+          enum: [draft, locked]
+        createdByUserId:
+          type: string
+        createdByName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        lockedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lockedByUserId:
+          type: string
+          nullable: true
+        lockedByName:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required: [id, projectId, versionNumber, status, createdByUserId, createdAt]
+
+    CloneVersionRequest:
+      type: object
+      properties:
+        sourceVersionId:
+          type: string
+        notes:
+          type: string
+      required: [sourceVersionId]
+
+    LockVersionRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        versionId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        quantityValue:
+          type: number
+          nullable: true
+        quantityUnit:
+          type: string
+          enum: [kg, m2, m3]
+          nullable: true
+        emissionFactorId:
+          type: string
+          nullable: true
+        emissionSourceType:
+          type: string
+          enum: [generic, EPD]
+          nullable: true
+        emissionSourceName:
+          type: string
+          nullable: true
+        emissionUnitSnapshot:
+          type: string
+          nullable: true
+        co2ePerUnitSnapshot:
+          type: number
+          nullable: true
+        moduleA1A3Share:
+          type: number
+        moduleA4Share:
+          type: number
+        moduleA5Share:
+          type: number
+        moduleBShare:
+          type: number
+        moduleCShare:
+          type: number
+        co2eTotal:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, versionId, name, category, moduleA1A3Share, moduleA4Share, moduleA5Share, moduleBShare, moduleCShare, createdAt, updatedAt]
+
+    CreateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        quantityValue:
+          type: number
+          nullable: true
+        quantityUnit:
+          type: string
+          enum: [kg, m2, m3]
+          nullable: true
+      required: [name, category]
+
+    UpdateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        quantityValue:
+          type: number
+          nullable: true
+        quantityUnit:
+          type: string
+          enum: [kg, m2, m3]
+          nullable: true
+        emissionFactorId:
+          type: string
+          nullable: true
+        moduleA1A3Share:
+          type: number
+        moduleA4Share:
+          type: number
+        moduleA5Share:
+          type: number
+        moduleBShare:
+          type: number
+        moduleCShare:
+          type: number
+
+    EmissionFactor:
+      type: object
+      properties:
+        id:
+          type: string
+        sourceType:
+          type: string
+          enum: [generic, EPD]
+        sourceName:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+          enum: [kg, m2, m3]
+        co2ePerUnit:
+          type: number
+        active:
+          type: boolean
+      required: [id, sourceType, sourceName, category, unit, co2ePerUnit, active]
+
+    ValidationCheck:
+      type: object
+      properties:
+        id:
+          type: string
+        passed:
+          type: boolean
+        message:
+          type: string
+        severity:
+          type: string
+          enum: [error, warning]
+      required: [id, passed, message, severity]
+
+    ValidationResult:
+      type: object
+      properties:
+        versionId:
+          type: string
+        passed:
+          type: boolean
+        checks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationCheck"
+      required: [versionId, passed, checks]
+
+    ModuleBreakdown:
+      type: object
+      properties:
+        module:
+          type: string
+        co2eTotal:
+          type: number
+        productBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              productName:
+                type: string
+              co2eContribution:
+                type: number
+            required: [productId, productName, co2eContribution]
+      required: [module, co2eTotal, productBreakdown]
+
+    CalculationResult:
+      type: object
+      properties:
+        versionId:
+          type: string
+        grandTotal:
+          type: number
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleBreakdown"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+      required: [versionId, grandTotal, modules, products]
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+        versionId:
+          type: string
+        type:
+          type: string
+          enum: [PDF, XLSX]
+        filePath:
+          type: string
+        createdByUserId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, versionId, type, filePath, createdByUserId, createdAt]
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+          nullable: true
+        entityType:
+          type: string
+        entityId:
+          type: string
+        action:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, entityType, entityId, action, createdAt]
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalProjects:
+          type: integer
+        draftVersions:
+          type: integer
+        lockedVersions:
+          type: integer
+        totalProducts:
+          type: integer
+        recentProjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectSummary"
+      required: [totalProjects, draftVersions, lockedVersions, totalProducts, recentProjects]

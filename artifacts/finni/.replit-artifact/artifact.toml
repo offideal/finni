@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Finni — CO₂ Calculator"
+version = "1.0.0"
+id = "artifacts/finni"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24105
+
+[services.development]
+run = "pnpm --filter @workspace/finni run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/finni", "run", "build" ]
+publicDir = "artifacts/finni/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24105"
+BASE_PATH = "/"
