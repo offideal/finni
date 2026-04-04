@@ -101,6 +101,13 @@ export interface ProjectSummary {
   createdAt: string;
 }
 
+export interface ProjectListResponse {
+  items: ProjectSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -279,6 +286,8 @@ export const EmissionFactorUnit = {
 
 export interface EmissionFactor {
   id: string;
+  /** Null = platform catalog; set = tenant-owned factor */
+  tenantId?: string | null;
   sourceType: EmissionFactorSourceType;
   sourceName: string;
   category: string;

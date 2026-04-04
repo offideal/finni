@@ -145,15 +145,28 @@ paths:
     get:
       operationId: getProjects
       tags: [projects]
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         "200":
-          description: List of projects
+          description: Paginated project list
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/ProjectSummary"
+                $ref: "#/components/schemas/ProjectListResponse"
     post:
       operationId: createProject
       tags: [projects]
@@ -711,6 +724,21 @@ components:
           type: string
           enum: [admin, editor, reviewer, viewer]
 
+    ProjectListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectSummary"
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required: [items, total, limit, offset]
+
     ProjectSummary:
       type: object
       properties:
@@ -984,6 +1012,10 @@ components:
       properties:
         id:
           type: string
+        tenantId:
+          type: string
+          nullable: true
+          description: Null = platform-wide catalog; set = tenant-owned factor
         sourceType:
           type: string
           enum: [generic, EPD]

@@ -2,6 +2,12 @@
 
 Multi-user SaaS tool for Finnish building projects: CO₂ lifecycle calculation and reporting.
 
+**Documentation (for product context, current state, and target architecture):**
+
+- [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) — what we build, user goals, MVP scope  
+- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) — where the codebase is now, temporary choices, what works  
+- [docs/SYSTEM_SPEC.md](docs/SYSTEM_SPEC.md) — how the system should be organized technically  
+
 ## Development rules
 
 - **Build fast** — ship working features end to end, no waiting

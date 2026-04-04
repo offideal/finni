@@ -35,6 +35,7 @@ import type {
   MessageResponse,
   Product,
   Project,
+  ProjectListResponse,
   ProjectSummary,
   Report,
   UpdateProductRequest,
@@ -560,27 +561,38 @@ export const useUpdateUser = <
   return useMutation(getUpdateUserMutationOptions(options));
 };
 
-export const getGetProjectsUrl = () => {
-  return `/api/projects`;
+export type GetProjectsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export const getGetProjectsUrl = (params?: GetProjectsParams) => {
+  const sp = new URLSearchParams();
+  if (params?.limit != null) sp.set("limit", String(params.limit));
+  if (params?.offset != null) sp.set("offset", String(params.offset));
+  const q = sp.toString();
+  return `/api/projects${q ? `?${q}` : ""}`;
 };
 
 export const getProjects = async (
+  params?: GetProjectsParams,
   options?: RequestInit,
-): Promise<ProjectSummary[]> => {
-  return customFetch<ProjectSummary[]>(getGetProjectsUrl(), {
+): Promise<ProjectListResponse> => {
+  return customFetch<ProjectListResponse>(getGetProjectsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetProjectsQueryKey = () => {
-  return [`/api/projects`] as const;
+export const getGetProjectsQueryKey = (params?: GetProjectsParams) => {
+  return [`/api/projects`, params] as const;
 };
 
 export const getGetProjectsQueryOptions = <
   TData = Awaited<ReturnType<typeof getProjects>>,
   TError = ErrorType<unknown>,
 >(options?: {
+  params?: GetProjectsParams;
   query?: UseQueryOptions<
     Awaited<ReturnType<typeof getProjects>>,
     TError,
@@ -588,13 +600,13 @@ export const getGetProjectsQueryOptions = <
   >;
   request?: SecondParameter<typeof customFetch>;
 }) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const { query: queryOptions, request: requestOptions, params } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetProjectsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetProjectsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getProjects>>> = ({
     signal,
-  }) => getProjects({ signal, ...requestOptions });
+  }) => getProjects(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getProjects>>,
@@ -612,6 +624,7 @@ export function useGetProjects<
   TData = Awaited<ReturnType<typeof getProjects>>,
   TError = ErrorType<unknown>,
 >(options?: {
+  params?: GetProjectsParams;
   query?: UseQueryOptions<
     Awaited<ReturnType<typeof getProjects>>,
     TError,
