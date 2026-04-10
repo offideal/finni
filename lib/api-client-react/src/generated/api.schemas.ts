@@ -11,6 +11,11 @@ export interface HealthStatus {
 
 export interface ErrorResponse {
   error: string;
+  /** Machine-readable reason when applicable (e.g. VERSION_LOCKED, LOCK_PRECONDITIONS_FAILED). */
+  code?: string;
+  summary?: string;
+  failedChecks?: Array<{ id: string; message: string }>;
+  fieldErrors?: Record<string, string>;
 }
 
 export interface MessageResponse {
@@ -95,6 +100,8 @@ export interface ProjectSummary {
   name: string;
   locationCountry: string;
   buildingType: string;
+  /** When set, project is archived (data mutations blocked until restored). */
+  archivedAt?: string | null;
   latestVersionStatus?: string | null;
   latestVersionNumber?: number | null;
   updatedAt: string;
@@ -115,6 +122,7 @@ export interface Project {
   buildingType: string;
   tenantId: string;
   createdByUserId: string;
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -139,9 +147,10 @@ export interface Space {
 
 export interface Building {
   id: string;
-  projectId: string;
+  versionId: string;
   grossAreaM2?: number | null;
   spaces: Space[];
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -152,8 +161,8 @@ export type UpsertBuildingRequestSpacesItem = {
 };
 
 export interface UpsertBuildingRequest {
-  grossAreaM2?: number | null;
-  spaces?: UpsertBuildingRequestSpacesItem[];
+  grossAreaM2: number;
+  spaces: UpsertBuildingRequestSpacesItem[];
 }
 
 export type VersionStatus = (typeof VersionStatus)[keyof typeof VersionStatus];
@@ -182,6 +191,10 @@ export interface CloneVersionRequest {
   notes?: string;
 }
 
+export interface CreateVersionRequest {
+  notes?: string;
+}
+
 export interface LockVersionRequest {
   notes?: string;
 }
@@ -203,6 +216,8 @@ export type ProductEmissionSourceType =
 export const ProductEmissionSourceType = {
   generic: "generic",
   EPD: "EPD",
+  product: "product",
+  external: "external",
 } as const;
 
 export interface Product {
@@ -217,6 +232,8 @@ export interface Product {
   emissionSourceName?: string | null;
   emissionUnitSnapshot?: string | null;
   co2ePerUnitSnapshot?: number | null;
+  emissionExternalSourceKey?: string | null;
+  emissionExternalRecordId?: string | null;
   moduleA1A3Share: number;
   moduleA4Share: number;
   moduleA5Share: number;
@@ -242,6 +259,93 @@ export interface CreateProductRequest {
   category: string;
   quantityValue?: number | null;
   quantityUnit?: CreateProductRequestQuantityUnit;
+}
+
+export interface ProductImportRow {
+  name: string;
+  category: string;
+  quantityValue?: number | null;
+  quantityUnit?: string | null;
+  moduleA1A3Share: number;
+  moduleA4Share: number;
+  moduleA5Share: number;
+  moduleBShare: number;
+  moduleCShare: number;
+}
+
+export interface ProductImportPreviewRow {
+  excelRow: number;
+  ok: boolean;
+  fieldErrors?: Record<string, string>;
+  data?: ProductImportRow;
+}
+
+export interface ProductImportPreviewResponse {
+  worksheetName: string;
+  structureOk: boolean;
+  structureError?: string | null;
+  code?: string | null;
+  rows: ProductImportPreviewRow[];
+  validCount: number;
+  errorCount: number;
+}
+
+export interface ProductImportCommitRequest {
+  rows: ProductImportRow[];
+}
+
+export interface ProductImportCommitResponse {
+  imported: number;
+  productIds: string[];
+}
+
+export interface BimImportPreviewSpace {
+  sourceExpressId: number;
+  name: string;
+  areaM2?: number | null;
+}
+
+export interface BimImportPreviewProductRow {
+  sourceExpressId: number;
+  ifcType: string;
+  ok: boolean;
+  fieldErrors?: Record<string, string>;
+  data?: ProductImportRow;
+}
+
+export interface BimImportPreviewResponse {
+  structureOk: boolean;
+  structureError?: string | null;
+  schemaName?: string | null;
+  scopeNotes: string[];
+  buildingName?: string | null;
+  suggestedGrossAreaM2?: number | null;
+  spaces: BimImportPreviewSpace[];
+  warnings: string[];
+  productRows: BimImportPreviewProductRow[];
+  stats: {
+    spaceCount: number;
+    productCandidates: number;
+    productOk: number;
+    productError: number;
+  };
+}
+
+export interface BimImportCommitBuilding {
+  grossAreaM2: number;
+  spaces: Array<{ name: string; areaM2: number }>;
+}
+
+export interface BimImportCommitRequest {
+  applyBuilding: boolean;
+  building?: BimImportCommitBuilding;
+  products: ProductImportRow[];
+}
+
+export interface BimImportCommitResponse {
+  importedProducts: number;
+  productIds: string[];
+  buildingUpdated: boolean;
 }
 
 export type UpdateProductRequestQuantityUnit =
@@ -273,6 +377,8 @@ export type EmissionFactorSourceType =
 export const EmissionFactorSourceType = {
   generic: "generic",
   EPD: "EPD",
+  product: "product",
+  external: "external",
 } as const;
 
 export type EmissionFactorUnit =
@@ -294,6 +400,36 @@ export interface EmissionFactor {
   unit: EmissionFactorUnit;
   co2ePerUnit: number;
   active: boolean;
+  externalSourceKey?: string | null;
+  externalRecordId?: string | null;
+  lastSyncedAt?: string | null;
+}
+
+export interface ExternalCo2SourceInfo {
+  id: string;
+  key: string;
+  displayName: string;
+  description?: string | null;
+  hasHandler: boolean;
+}
+
+export interface ExternalCo2SyncResponse {
+  upserted: number;
+  sourceKey: string;
+}
+
+export interface TenantEpdCreateRequest {
+  sourceName: string;
+  category: string;
+  unit: string;
+  co2ePerUnit: number;
+}
+
+export interface TenantEpdUpdateRequest {
+  sourceName?: string;
+  category?: string;
+  unit?: string;
+  co2ePerUnit?: number;
 }
 
 export type ValidationCheckSeverity =
@@ -302,18 +438,46 @@ export type ValidationCheckSeverity =
 export const ValidationCheckSeverity = {
   error: "error",
   warning: "warning",
+  info: "info",
 } as const;
+
+export type ValidationGroup =
+  | "project"
+  | "building"
+  | "products"
+  | "calculation"
+  | "data_quality";
+
+export type ValidationFixTargetKind = "building" | "products" | "calculation" | "product";
+
+export interface ValidationFixTarget {
+  kind: ValidationFixTargetKind;
+  productId?: string;
+}
 
 export interface ValidationCheck {
   id: string;
   passed: boolean;
   message: string;
   severity: ValidationCheckSeverity;
+  group: ValidationGroup;
+  fixTarget?: ValidationFixTarget;
+}
+
+export interface ValidationSummary {
+  blockingFailed: number;
+  blockingPassed: number;
+  warningFailed: number;
+  warningPassed: number;
+  infoFailed: number;
+  infoPassed: number;
 }
 
 export interface ValidationResult {
   versionId: string;
+  projectId: string;
   passed: boolean;
+  summary: ValidationSummary;
   checks: ValidationCheck[];
 }
 
@@ -329,11 +493,44 @@ export interface ModuleBreakdown {
   productBreakdown: ModuleBreakdownProductBreakdownItem[];
 }
 
+export interface CalculationSummary {
+  totalProducts: number;
+  includedInCalculation: number;
+  excludedIncomplete: number;
+}
+
+export type CalculationProductLineEligibility =
+  (typeof CalculationProductLineEligibility)[keyof typeof CalculationProductLineEligibility];
+
+export const CalculationProductLineEligibility = {
+  included: "included",
+  excluded_incomplete: "excluded_incomplete",
+} as const;
+
+export interface CalculationProductLine {
+  id: string;
+  name: string;
+  quantityValue?: number | null;
+  co2ePerUnitSnapshot?: number | null;
+  moduleA1A3Share: number;
+  moduleA4Share: number;
+  moduleA5Share: number;
+  moduleBShare: number;
+  moduleCShare: number;
+  co2eTotal: number | null;
+  eligibility: CalculationProductLineEligibility;
+  exclusionReason?: string | null;
+  baseCo2e?: number | null;
+}
+
 export interface CalculationResult {
+  engineVersion: string;
+  computedAt: string;
   versionId: string;
   grandTotal: number;
   modules: ModuleBreakdown[];
-  products: Product[];
+  products: CalculationProductLine[];
+  summary: CalculationSummary;
 }
 
 export type ReportType = (typeof ReportType)[keyof typeof ReportType];
@@ -360,6 +557,8 @@ export interface AuditLogEntry {
   entityId: string;
   action: string;
   createdAt: string;
+  /** Sanitized JSON snapshot for display (size-limited). */
+  diffPreview?: unknown | null;
 }
 
 export interface DashboardSummary {
@@ -374,4 +573,6 @@ export type GetEmissionFactorsParams = {
   category?: string;
   unit?: string;
   sourceType?: string;
+  /** Case-insensitive search on source name and category */
+  q?: string;
 };

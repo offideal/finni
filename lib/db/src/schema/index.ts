@@ -5,4 +5,5 @@ export * from "./buildings";
 export * from "./versions";
 export * from "./products";
 export * from "./emission_factors";
+export * from "./external_co2_sources";
 export * from "./reports";

@@ -7,6 +7,10 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAdmin: boolean;
+  /** Admin or editor — can create/edit projects and tenant data (see TENANT_EDITOR_ROLES). */
+  isTenantEditor: boolean;
+  /** Admin or editor — can manage tenant-specific EPD / emission factor records. */
+  canManageTenantEpd: boolean;
   isReviewerOrAdmin: boolean;
 }
 
@@ -21,10 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const authUser = user || null;
   const isAdmin = authUser?.role === "admin";
+  const isTenantEditor = isAdmin || authUser?.role === "editor";
+  const canManageTenantEpd = isTenantEditor;
   const isReviewerOrAdmin = isAdmin || authUser?.role === "reviewer";
 
   return (
-    <AuthContext.Provider value={{ user: authUser, isLoading, isAdmin, isReviewerOrAdmin }}>
+    <AuthContext.Provider
+      value={{ user: authUser, isLoading, isAdmin, isTenantEditor, canManageTenantEpd, isReviewerOrAdmin }}
+    >
       {children}
     </AuthContext.Provider>
   );

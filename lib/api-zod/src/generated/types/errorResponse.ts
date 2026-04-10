@@ -8,4 +8,8 @@
 
 export interface ErrorResponse {
   error: string;
+  code?: string;
+  summary?: string;
+  failedChecks?: Array<{ id: string; message: string }>;
+  fieldErrors?: Record<string, string>;
 }

@@ -6,7 +6,7 @@ import { requireAuth } from "../middlewares/requireAuth";
 const router: IRouter = Router();
 
 router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const { category, unit, sourceType } = req.query as Record<string, string | undefined>;
+  const { category, unit, sourceType, q } = req.query as Record<string, string | undefined>;
   const tenantId = req.session.tenantId!;
 
   const scope = or(isNull(emissionFactorsTable.tenantId), eq(emissionFactorsTable.tenantId, tenantId));
@@ -16,10 +16,16 @@ router.get("/", requireAuth, async (req, res): Promise<void> => {
     .from(emissionFactorsTable)
     .where(and(eq(emissionFactorsTable.active, true), scope));
 
+  const needle = q?.trim().toLowerCase() ?? "";
+
   const filtered = results.filter((f) => {
     if (category && f.category !== category) return false;
     if (unit && f.unit !== unit) return false;
     if (sourceType && f.sourceType !== sourceType) return false;
+    if (needle) {
+      const hay = `${f.sourceName} ${f.category}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
     return true;
   });
 

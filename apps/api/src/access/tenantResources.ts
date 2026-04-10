@@ -18,6 +18,17 @@ export async function projectExistsForTenant(projectId: string, tenantId: string
   return p !== null;
 }
 
+/** Mutations that change project data (building, versions, products, reports) require a non-archived project. */
+export async function requireWritableProject(
+  projectId: string,
+  tenantId: string,
+): Promise<{ ok: true; project: Project } | { ok: false; httpStatus: 404 | 400; error: string }> {
+  const p = await getProjectForTenant(projectId, tenantId);
+  if (!p) return { ok: false, httpStatus: 404, error: "Project not found" };
+  if (p.archivedAt != null) return { ok: false, httpStatus: 400, error: "Project is archived" };
+  return { ok: true, project: p };
+}
+
 /** Version joined with its project; null if version missing or tenant mismatch. */
 export async function getVersionWithProjectForTenant(
   versionId: string,
@@ -39,17 +50,43 @@ export async function getVersionForTenant(
   return row?.version ?? null;
 }
 
+export const VERSION_LOCKED_ERROR_CODE = "VERSION_LOCKED" as const;
+export const PROJECT_ARCHIVED_ERROR_CODE = "PROJECT_ARCHIVED" as const;
+
 /** Draft version for mutations; locked or missing → error envelope (map to HTTP in routes). */
 export type DraftVersionAccess =
   | { ok: true; version: Version }
-  | { ok: false; httpStatus: 404 | 400; error: string };
+  | { ok: false; httpStatus: 404 | 400; error: string; code?: string };
+
+export function draftAccessFailureBody(access: Extract<DraftVersionAccess, { ok: false }>): {
+  error: string;
+  code?: string;
+} {
+  return access.code !== undefined ? { error: access.error, code: access.code } : { error: access.error };
+}
 
 export async function getDraftVersionForTenant(
   versionId: string,
   tenantId: string,
 ): Promise<DraftVersionAccess> {
-  const version = await getVersionForTenant(versionId, tenantId);
-  if (!version) return { ok: false, httpStatus: 404, error: "Version not found" };
-  if (version.status === "locked") return { ok: false, httpStatus: 400, error: "Version is locked" };
-  return { ok: true, version };
+  const row = await getVersionWithProjectForTenant(versionId, tenantId);
+  if (!row) return { ok: false, httpStatus: 404, error: "Version not found" };
+  if (row.project.archivedAt) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: "Project is archived",
+      code: PROJECT_ARCHIVED_ERROR_CODE,
+    };
+  }
+  if (row.version.status === "locked") {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error:
+        "This version is locked and cannot be edited. Clone this version or create a new draft to make changes.",
+      code: VERSION_LOCKED_ERROR_CODE,
+    };
+  }
+  return { ok: true, version: row.version };
 }

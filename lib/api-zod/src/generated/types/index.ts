@@ -48,6 +48,8 @@ export * from "./user";
 export * from "./userRole";
 export * from "./validationCheck";
 export * from "./validationCheckSeverity";
+export * from "./validationFixTarget";
 export * from "./validationResult";
+export * from "./validationSummary";
 export * from "./version";
 export * from "./versionStatus";

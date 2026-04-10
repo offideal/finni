@@ -6,7 +6,9 @@ import {
   listProjectsPaginated,
   createProjectWithInitialVersion,
   getDashboardSummaryForTenant,
-  updateProjectForTenant,
+  updateProjectMetadata,
+  archiveProjectForTenant,
+  unarchiveProjectForTenant,
 } from "../services/projectService";
 
 const router: IRouter = Router();
@@ -24,11 +26,16 @@ router.post("/", requireTenantEditor, async (req, res): Promise<void> => {
     res.status(400).json({ error: "Name and buildingType required" });
     return;
   }
+  const trimmed = String(name).trim();
+  if (!trimmed) {
+    res.status(400).json({ error: "Project name is required" });
+    return;
+  }
 
   const project = await createProjectWithInitialVersion({
     tenantId: req.session.tenantId!,
     userId: req.session.userId!,
-    name,
+    name: trimmed,
     locationCountry: locationCountry ?? "FI",
     buildingType,
   });
@@ -39,6 +46,32 @@ router.post("/", requireTenantEditor, async (req, res): Promise<void> => {
 router.get("/dashboard/summary", requireAuth, async (req, res): Promise<void> => {
   const body = await getDashboardSummaryForTenant(req.session.tenantId!);
   res.json(body);
+});
+
+router.post("/:id/archive", requireTenantEditor, async (req, res): Promise<void> => {
+  const result = await archiveProjectForTenant({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    projectId: req.params["id"]!,
+  });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
+    return;
+  }
+  res.json(result.project);
+});
+
+router.post("/:id/unarchive", requireTenantEditor, async (req, res): Promise<void> => {
+  const result = await unarchiveProjectForTenant({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    projectId: req.params["id"]!,
+  });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
+    return;
+  }
+  res.json(result.project);
 });
 
 router.get("/:id", requireAuth, async (req, res): Promise<void> => {
@@ -52,18 +85,20 @@ router.get("/:id", requireAuth, async (req, res): Promise<void> => {
 
 router.patch("/:id", requireTenantEditor, async (req, res): Promise<void> => {
   const { name, locationCountry, buildingType } = req.body;
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (name !== undefined) updates["name"] = name;
-  if (locationCountry !== undefined) updates["locationCountry"] = locationCountry;
-  if (buildingType !== undefined) updates["buildingType"] = buildingType;
+  const result = await updateProjectMetadata({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    projectId: req.params["id"]!,
+    name,
+    locationCountry,
+    buildingType,
+  });
 
-  const project = await updateProjectForTenant(req.session.tenantId!, req.params["id"]!, updates);
-
-  if (!project) {
-    res.status(404).json({ error: "Project not found" });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
     return;
   }
-  res.json(project);
+  res.json(result.project);
 });
 
 export { router as projectsRouter };

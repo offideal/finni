@@ -22,11 +22,20 @@ import type {
   Building,
   CalculationResult,
   CloneVersionRequest,
+  CreateVersionRequest,
   CreateProductRequest,
   CreateProjectRequest,
+  ProductImportCommitRequest,
+  ProductImportCommitResponse,
+  ProductImportPreviewResponse,
+  BimImportCommitRequest,
+  BimImportCommitResponse,
+  BimImportPreviewResponse,
   CreateUserRequest,
   DashboardSummary,
   EmissionFactor,
+  ExternalCo2SourceInfo,
+  ExternalCo2SyncResponse,
   ErrorResponse,
   GetEmissionFactorsParams,
   HealthStatus,
@@ -43,6 +52,8 @@ import type {
   UpdateUserRequest,
   UpsertBuildingRequest,
   User,
+  TenantEpdCreateRequest,
+  TenantEpdUpdateRequest,
   ValidationResult,
   Version,
 } from "./api.schemas";
@@ -561,6 +572,84 @@ export const useUpdateUser = <
   return useMutation(getUpdateUserMutationOptions(options));
 };
 
+export const getDeleteUserUrl = (id: string) => {
+  return `/api/users/${id}`;
+};
+
+export const deleteUser = async (
+  id: string,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(getDeleteUserUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteUserMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteUser>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteUser(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteUser>>
+>;
+
+export type DeleteUserMutationError = ErrorType<unknown>;
+
+export const useDeleteUser = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUser>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteUser>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteUserMutationOptions(options));
+};
+
 export type GetProjectsParams = {
   limit?: number;
   offset?: number;
@@ -882,22 +971,159 @@ export const useUpdateProject = <
   return useMutation(getUpdateProjectMutationOptions(options));
 };
 
-export const getGetBuildingUrl = (projectId: string) => {
-  return `/api/projects/${projectId}/building`;
+export const getArchiveProjectUrl = (id: string) => {
+  return `/api/projects/${id}/archive`;
+};
+
+export const archiveProject = async (id: string, options?: RequestInit): Promise<Project> => {
+  return customFetch<Project>(getArchiveProjectUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getArchiveProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveProject>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof archiveProject>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["archiveProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof archiveProject>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+    return archiveProject(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useArchiveProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof archiveProject>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof archiveProject>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getArchiveProjectMutationOptions(options));
+};
+
+export const getUnarchiveProjectUrl = (id: string) => {
+  return `/api/projects/${id}/unarchive`;
+};
+
+export const unarchiveProject = async (id: string, options?: RequestInit): Promise<Project> => {
+  return customFetch<Project>(getUnarchiveProjectUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUnarchiveProjectMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveProject>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unarchiveProject>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["unarchiveProject"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unarchiveProject>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+    return unarchiveProject(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useUnarchiveProject = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unarchiveProject>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unarchiveProject>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getUnarchiveProjectMutationOptions(options));
+};
+
+export const getGetBuildingUrl = (projectId: string, versionId: string) => {
+  return `/api/projects/${projectId}/versions/${versionId}/building`;
 };
 
 export const getBuilding = async (
   projectId: string,
+  versionId: string,
   options?: RequestInit,
 ): Promise<Building> => {
-  return customFetch<Building>(getGetBuildingUrl(projectId), {
+  return customFetch<Building>(getGetBuildingUrl(projectId, versionId), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetBuildingQueryKey = (projectId: string) => {
-  return [`/api/projects/${projectId}/building`] as const;
+export const getGetBuildingQueryKey = (projectId: string, versionId: string) => {
+  return [`/api/projects/${projectId}/versions/${versionId}/building`] as const;
 };
 
 export const getGetBuildingQueryOptions = <
@@ -905,6 +1131,7 @@ export const getGetBuildingQueryOptions = <
   TError = ErrorType<ErrorResponse>,
 >(
   projectId: string,
+  versionId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getBuilding>>,
@@ -916,16 +1143,16 @@ export const getGetBuildingQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetBuildingQueryKey(projectId);
+  const queryKey = queryOptions?.queryKey ?? getGetBuildingQueryKey(projectId, versionId);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getBuilding>>> = ({
     signal,
-  }) => getBuilding(projectId, { signal, ...requestOptions });
+  }) => getBuilding(projectId, versionId, { signal, ...requestOptions });
 
   return {
     queryKey,
     queryFn,
-    enabled: !!projectId,
+    enabled: !!projectId && !!versionId,
     ...queryOptions,
   } as UseQueryOptions<
     Awaited<ReturnType<typeof getBuilding>>,
@@ -944,6 +1171,7 @@ export function useGetBuilding<
   TError = ErrorType<ErrorResponse>,
 >(
   projectId: string,
+  versionId: string,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getBuilding>>,
@@ -953,7 +1181,7 @@ export function useGetBuilding<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetBuildingQueryOptions(projectId, options);
+  const queryOptions = getGetBuildingQueryOptions(projectId, versionId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -962,16 +1190,17 @@ export function useGetBuilding<
   return { ...query, queryKey: queryOptions.queryKey };
 }
 
-export const getUpsertBuildingUrl = (projectId: string) => {
-  return `/api/projects/${projectId}/building`;
+export const getUpsertBuildingUrl = (projectId: string, versionId: string) => {
+  return `/api/projects/${projectId}/versions/${versionId}/building`;
 };
 
 export const upsertBuilding = async (
   projectId: string,
+  versionId: string,
   upsertBuildingRequest: UpsertBuildingRequest,
   options?: RequestInit,
 ): Promise<Building> => {
-  return customFetch<Building>(getUpsertBuildingUrl(projectId), {
+  return customFetch<Building>(getUpsertBuildingUrl(projectId, versionId), {
     ...options,
     method: "PUT",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -986,14 +1215,14 @@ export const getUpsertBuildingMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof upsertBuilding>>,
     TError,
-    { projectId: string; data: BodyType<UpsertBuildingRequest> },
+    { projectId: string; versionId: string; data: BodyType<UpsertBuildingRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof upsertBuilding>>,
   TError,
-  { projectId: string; data: BodyType<UpsertBuildingRequest> },
+  { projectId: string; versionId: string; data: BodyType<UpsertBuildingRequest> },
   TContext
 > => {
   const mutationKey = ["upsertBuilding"];
@@ -1007,11 +1236,11 @@ export const getUpsertBuildingMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof upsertBuilding>>,
-    { projectId: string; data: BodyType<UpsertBuildingRequest> }
+    { projectId: string; versionId: string; data: BodyType<UpsertBuildingRequest> }
   > = (props) => {
-    const { projectId, data } = props ?? {};
+    const { projectId, versionId, data } = props ?? {};
 
-    return upsertBuilding(projectId, data, requestOptions);
+    return upsertBuilding(projectId, versionId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1030,14 +1259,14 @@ export const useUpsertBuilding = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof upsertBuilding>>,
     TError,
-    { projectId: string; data: BodyType<UpsertBuildingRequest> },
+    { projectId: string; versionId: string; data: BodyType<UpsertBuildingRequest> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof upsertBuilding>>,
   TError,
-  { projectId: string; data: BodyType<UpsertBuildingRequest> },
+  { projectId: string; versionId: string; data: BodyType<UpsertBuildingRequest> },
   TContext
 > => {
   return useMutation(getUpsertBuildingMutationOptions(options));
@@ -1122,6 +1351,87 @@ export function useGetVersions<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export const getCreateVersionUrl = (projectId: string) => {
+  return `/api/projects/${projectId}/versions`;
+};
+
+export const createVersion = async (
+  projectId: string,
+  createVersionRequest: CreateVersionRequest,
+  options?: RequestInit,
+): Promise<Version> => {
+  return customFetch<Version>(getCreateVersionUrl(projectId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createVersionRequest),
+  });
+};
+
+export const getCreateVersionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVersion>>,
+    TError,
+    { projectId: string; data: BodyType<CreateVersionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createVersion>>,
+  TError,
+  { projectId: string; data: BodyType<CreateVersionRequest> },
+  TContext
+> => {
+  const mutationKey = ["createVersion"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createVersion>>,
+    { projectId: string; data: BodyType<CreateVersionRequest> }
+  > = (props) => {
+    const { projectId, data } = props ?? {};
+
+    return createVersion(projectId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateVersionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createVersion>>
+>;
+export type CreateVersionMutationBody = BodyType<CreateVersionRequest>;
+export type CreateVersionMutationError = ErrorType<unknown>;
+
+export const useCreateVersion = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createVersion>>,
+    TError,
+    { projectId: string; data: BodyType<CreateVersionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createVersion>>,
+  TError,
+  { projectId: string; data: BodyType<CreateVersionRequest> },
+  TContext
+> => {
+  return useMutation(getCreateVersionMutationOptions(options));
+};
 
 export const getCloneVersionUrl = (projectId: string) => {
   return `/api/projects/${projectId}/versions/clone`;
@@ -1526,6 +1836,190 @@ export const useCreateProduct = <
   return useMutation(getCreateProductMutationOptions(options));
 };
 
+export const getPreviewProductImportUrl = (versionId: string) => {
+  return `/api/versions/${versionId}/products/import/preview`;
+};
+
+export const previewProductImport = async (
+  versionId: string,
+  file: File,
+  options?: RequestInit,
+): Promise<ProductImportPreviewResponse> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return customFetch<ProductImportPreviewResponse>(getPreviewProductImportUrl(versionId), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getCommitProductImportUrl = (versionId: string) => {
+  return `/api/versions/${versionId}/products/import/commit`;
+};
+
+export const commitProductImport = async (
+  versionId: string,
+  productImportCommitRequest: ProductImportCommitRequest,
+  options?: RequestInit,
+): Promise<ProductImportCommitResponse> => {
+  return customFetch<ProductImportCommitResponse>(getCommitProductImportUrl(versionId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(productImportCommitRequest),
+  });
+};
+
+export const getCommitProductImportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitProductImport>>,
+    TError,
+    { versionId: string; data: BodyType<ProductImportCommitRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitProductImport>>,
+  TError,
+  { versionId: string; data: BodyType<ProductImportCommitRequest> },
+  TContext
+> => {
+  const mutationKey = ["commitProductImport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitProductImport>>,
+    { versionId: string; data: BodyType<ProductImportCommitRequest> }
+  > = (props) => {
+    const { versionId, data } = props ?? {};
+    return commitProductImport(versionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useCommitProductImport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitProductImport>>,
+    TError,
+    { versionId: string; data: BodyType<ProductImportCommitRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitProductImport>>,
+  TError,
+  { versionId: string; data: BodyType<ProductImportCommitRequest> },
+  TContext
+> => {
+  return useMutation(getCommitProductImportMutationOptions(options));
+};
+
+export const getPreviewBimImportUrl = (versionId: string) => {
+  return `/api/versions/${versionId}/bim-import/preview`;
+};
+
+export const previewBimImport = async (
+  versionId: string,
+  file: File,
+  options?: RequestInit,
+): Promise<BimImportPreviewResponse> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return customFetch<BimImportPreviewResponse>(getPreviewBimImportUrl(versionId), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getCommitBimImportUrl = (versionId: string) => {
+  return `/api/versions/${versionId}/bim-import/commit`;
+};
+
+export const commitBimImport = async (
+  versionId: string,
+  body: BimImportCommitRequest,
+  options?: RequestInit,
+): Promise<BimImportCommitResponse> => {
+  return customFetch<BimImportCommitResponse>(getCommitBimImportUrl(versionId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(body),
+  });
+};
+
+export const getCommitBimImportMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitBimImport>>,
+    TError,
+    { versionId: string; data: BodyType<BimImportCommitRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof commitBimImport>>,
+  TError,
+  { versionId: string; data: BodyType<BimImportCommitRequest> },
+  TContext
+> => {
+  const mutationKey = ["commitBimImport"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof commitBimImport>>,
+    { versionId: string; data: BodyType<BimImportCommitRequest> }
+  > = (props) => {
+    const { versionId, data } = props ?? {};
+    return commitBimImport(versionId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useCommitBimImport = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof commitBimImport>>,
+    TError,
+    { versionId: string; data: BodyType<BimImportCommitRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof commitBimImport>>,
+  TError,
+  { versionId: string; data: BodyType<BimImportCommitRequest> },
+  TContext
+> => {
+  return useMutation(getCommitBimImportMutationOptions(options));
+};
+
 export const getUpdateProductUrl = (id: string) => {
   return `/api/products/${id}`;
 };
@@ -1852,6 +2346,215 @@ export function useGetEmissionFactors<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+export const getGetEmissionSourcesUrl = () => {
+  return `/api/emission-sources`;
+};
+
+export const getEmissionSources = async (options?: RequestInit): Promise<ExternalCo2SourceInfo[]> => {
+  return customFetch<ExternalCo2SourceInfo[]>(getGetEmissionSourcesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEmissionSourcesQueryKey = () => {
+  return [`/api/emission-sources`] as const;
+};
+
+export const getGetEmissionSourcesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEmissionSources>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getEmissionSources>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetEmissionSourcesQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmissionSources>>> = ({ signal }) =>
+    getEmissionSources({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEmissionSources>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useGetEmissionSources<
+  TData = Awaited<ReturnType<typeof getEmissionSources>>,
+  TError = ErrorType<unknown>,
+>(
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getEmissionSources>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEmissionSourcesQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getSyncEmissionSourceUrl = (key: string) => {
+  return `/api/emission-sources/${encodeURIComponent(key)}/sync`;
+};
+
+export const syncEmissionSource = async (
+  key: string,
+  options?: RequestInit,
+): Promise<ExternalCo2SyncResponse> => {
+  return customFetch<ExternalCo2SyncResponse>(getSyncEmissionSourceUrl(key), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSyncEmissionSourceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncEmissionSource>>,
+    TError,
+    { key: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncEmissionSource>>,
+  TError,
+  { key: string },
+  TContext
+> => {
+  const mutationKey = ["syncEmissionSource"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncEmissionSource>>, { key: string }> = (props) => {
+    const k = props?.key;
+    if (!k) {
+      return Promise.reject(new Error("Missing source key"));
+    }
+    return syncEmissionSource(k, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useSyncEmissionSource = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncEmissionSource>>,
+    TError,
+    { key: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncEmissionSource>>,
+  TError,
+  { key: string },
+  TContext
+> => {
+  return useMutation(getSyncEmissionSourceMutationOptions(options));
+};
+
+export const getGetTenantEmissionFactorsManagedUrl = () => `/api/tenant/emission-factors/managed`;
+
+export const getTenantEmissionFactorsManaged = async (options?: RequestInit): Promise<EmissionFactor[]> => {
+  return customFetch<EmissionFactor[]>(getGetTenantEmissionFactorsManagedUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetTenantEmissionFactorsManagedQueryKey = () => [`/api/tenant/emission-factors/managed`] as const;
+
+export const useGetTenantEmissionFactorsManaged = <
+  TData = Awaited<ReturnType<typeof getTenantEmissionFactorsManaged>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof getTenantEmissionFactorsManaged>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryKey = options?.query?.queryKey ?? getGetTenantEmissionFactorsManagedQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantEmissionFactorsManaged>>> = ({ signal }) =>
+    getTenantEmissionFactorsManaged({ signal, ...options?.request });
+  const q = useQuery({ queryKey, queryFn, ...options?.query }) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...q, queryKey };
+};
+
+export const createTenantEmissionFactor = async (
+  data: TenantEpdCreateRequest,
+  options?: RequestInit,
+): Promise<EmissionFactor> => {
+  return customFetch<EmissionFactor>(`/api/tenant/emission-factors`, {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(data),
+  });
+};
+
+export const useCreateTenantEmissionFactor = (options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof createTenantEmissionFactor>>, ErrorType<unknown>, TenantEpdCreateRequest>;
+  request?: SecondParameter<typeof customFetch>;
+}) =>
+  useMutation({
+    mutationFn: (data: TenantEpdCreateRequest) => createTenantEmissionFactor(data, options?.request),
+    ...options?.mutation,
+  });
+
+export const updateTenantEmissionFactor = async (
+  id: string,
+  data: TenantEpdUpdateRequest,
+  options?: RequestInit,
+): Promise<EmissionFactor> => {
+  return customFetch<EmissionFactor>(`/api/tenant/emission-factors/${encodeURIComponent(id)}`, {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(data),
+  });
+};
+
+export const useUpdateTenantEmissionFactor = (options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateTenantEmissionFactor>>,
+    ErrorType<unknown>,
+    { id: string; data: TenantEpdUpdateRequest }
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) =>
+  useMutation({
+    mutationFn: (vars: { id: string; data: TenantEpdUpdateRequest }) =>
+      updateTenantEmissionFactor(vars.id, vars.data, options?.request),
+    ...options?.mutation,
+  });
+
+export const archiveTenantEmissionFactor = async (id: string, options?: RequestInit): Promise<EmissionFactor> => {
+  return customFetch<EmissionFactor>(`/api/tenant/emission-factors/${encodeURIComponent(id)}/archive`, {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const useArchiveTenantEmissionFactor = (options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof archiveTenantEmissionFactor>>, ErrorType<unknown>, string>;
+  request?: SecondParameter<typeof customFetch>;
+}) =>
+  useMutation({
+    mutationFn: (id: string) => archiveTenantEmissionFactor(id, options?.request),
+    ...options?.mutation,
+  });
 
 export const getGetValidationUrl = (versionId: string) => {
   return `/api/versions/${versionId}/validation`;
@@ -2404,6 +3107,88 @@ export function useGetAuditLog<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAuditLogQueryOptions(projectId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getGetVersionAuditLogUrl = (projectId: string, versionId: string) => {
+  return `/api/projects/${projectId}/versions/${versionId}/audit`;
+};
+
+export const getVersionAuditLog = async (
+  projectId: string,
+  versionId: string,
+  options?: RequestInit,
+): Promise<AuditLogEntry[]> => {
+  return customFetch<AuditLogEntry[]>(getGetVersionAuditLogUrl(projectId, versionId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVersionAuditLogQueryKey = (projectId: string, versionId: string) => {
+  return [`/api/projects/${projectId}/versions/${versionId}/audit`] as const;
+};
+
+export const getGetVersionAuditLogQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVersionAuditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: string,
+  versionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVersionAuditLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetVersionAuditLogQueryKey(projectId, versionId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getVersionAuditLog>>> = ({ signal }) =>
+    getVersionAuditLog(projectId, versionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!projectId && !!versionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVersionAuditLog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVersionAuditLogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVersionAuditLog>>
+>;
+export type GetVersionAuditLogQueryError = ErrorType<unknown>;
+
+export function useGetVersionAuditLog<
+  TData = Awaited<ReturnType<typeof getVersionAuditLog>>,
+  TError = ErrorType<unknown>,
+>(
+  projectId: string,
+  versionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVersionAuditLog>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVersionAuditLogQueryOptions(projectId, versionId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

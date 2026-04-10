@@ -365,13 +365,24 @@ export const GetValidationParams = zod.object({
 
 export const GetValidationResponse = zod.object({
   versionId: zod.string(),
+  projectId: zod.string(),
   passed: zod.boolean(),
+  summary: zod.object({
+    blockingFailed: zod.number(),
+    blockingPassed: zod.number(),
+    warningFailed: zod.number(),
+    warningPassed: zod.number(),
+    infoFailed: zod.number(),
+    infoPassed: zod.number(),
+  }),
   checks: zod.array(
     zod.object({
       id: zod.string(),
       passed: zod.boolean(),
       message: zod.string(),
-      severity: zod.enum(["error", "warning"]),
+      severity: zod.enum(["error", "warning", "info"]),
+      group: zod.enum(["project", "building", "products", "calculation", "data_quality"]),
+      fixTarget: zod.unknown().nullish(),
     }),
   ),
 });
@@ -477,8 +488,15 @@ export const GetAuditLogResponseItem = zod.object({
   entityId: zod.string(),
   action: zod.string(),
   createdAt: zod.coerce.date(),
+  diffPreview: zod.unknown().nullish(),
 });
 export const GetAuditLogResponse = zod.array(GetAuditLogResponseItem);
+
+export const GetVersionAuditLogParams = zod.object({
+  projectId: zod.coerce.string(),
+  versionId: zod.coerce.string(),
+});
+export const GetVersionAuditLogResponse = GetAuditLogResponse;
 
 export const GetDashboardSummaryResponse = zod.object({
   totalProjects: zod.number(),

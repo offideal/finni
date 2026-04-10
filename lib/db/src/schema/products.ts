@@ -16,6 +16,9 @@ export const productsTable = pgTable(
   emissionSourceName: text("emission_source_name"),
   emissionUnitSnapshot: text("emission_unit_snapshot"),
   co2ePerUnitSnapshot: doublePrecision("co2e_per_unit_snapshot"),
+  /** Copied at factor attach time when the catalog row came from an external sync (audit / deterministic lineage). */
+  emissionExternalSourceKey: text("emission_external_source_key"),
+  emissionExternalRecordId: text("emission_external_record_id"),
   moduleA1A3Share: doublePrecision("module_a1a3_share").notNull().default(1),
   moduleA4Share: doublePrecision("module_a4_share").notNull().default(0),
   moduleA5Share: doublePrecision("module_a5_share").notNull().default(0),

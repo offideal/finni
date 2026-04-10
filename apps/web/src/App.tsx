@@ -12,9 +12,13 @@ import ProjectBuilding from "@/pages/projects/building";
 import ProjectVersions from "@/pages/projects/versions";
 import ProjectProducts from "@/pages/projects/products";
 import ProjectCalculation from "@/pages/projects/calculation";
+import ProjectReportingDashboard from "@/pages/projects/reporting";
 import ProjectValidation from "@/pages/projects/validation";
 import ProjectReports from "@/pages/projects/reports";
+import ProjectAudit from "@/pages/projects/audit";
+import VersionCompare from "@/pages/projects/version-compare";
 import UsersPage from "@/pages/settings/users";
+import TenantEpdSettingsPage from "@/pages/settings/epd";
 
 const queryClient = new QueryClient();
 
@@ -45,16 +49,21 @@ function Router() {
       <Route path="/" component={RootRoute} />
       
       <ProtectedRoute path="/projects" component={ProjectsPage} />
+      <ProtectedRoute path="/projects/:id/version-compare" component={VersionCompare} />
       <ProtectedRoute path="/projects/:id" component={ProjectDashboard} />
-      <ProtectedRoute path="/projects/:id/building" component={ProjectBuilding} />
+      <ProtectedRoute path="/projects/:id/versions/:versionId/building" component={ProjectBuilding} />
       <ProtectedRoute path="/projects/:id/versions" component={ProjectVersions} />
       
       <ProtectedRoute path="/projects/:id/versions/:versionId/products" component={ProjectProducts} />
       <ProtectedRoute path="/projects/:id/versions/:versionId/calculation" component={ProjectCalculation} />
+      <ProtectedRoute path="/projects/:id/versions/:versionId/reporting" component={ProjectReportingDashboard} />
       <ProtectedRoute path="/projects/:id/versions/:versionId/validation" component={ProjectValidation} />
       <ProtectedRoute path="/projects/:id/versions/:versionId/reports" component={ProjectReports} />
-      
+      <ProtectedRoute path="/projects/:id/versions/:versionId/audit" component={ProjectAudit} />
+      <ProtectedRoute path="/projects/:id/audit" component={ProjectAudit} />
+
       <ProtectedRoute path="/settings/users" component={UsersPage} />
+      <ProtectedRoute path="/settings/epd" component={TenantEpdSettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );

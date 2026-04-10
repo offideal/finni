@@ -1,34 +1,22 @@
 import { Router, type IRouter } from "express";
-import { db, versionsTable, productsTable, usersTable } from "@workspace/db";
+import { db, versionsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { newId } from "../lib/id";
 import { requireAuth, requireTenantEditor } from "../middlewares/requireAuth";
 import { VERSION_LOCK_ROLES } from "../auth/roles";
-import { projectExistsForTenant, getVersionWithProjectForTenant } from "../access/tenantResources";
+import {
+  projectExistsForTenant,
+  getVersionWithProjectForTenant,
+  requireWritableProject,
+} from "../access/tenantResources";
+import {
+  enrichVersion,
+  createEmptyDraftVersion,
+  cloneVersionFromSource,
+  recordVersionLocked,
+  evaluateVersionLockPreconditions,
+} from "../services/versionService";
 
 const router: IRouter = Router({ mergeParams: true });
-
-async function enrichVersion(version: typeof versionsTable.$inferSelect) {
-  const createdByUser = version.createdByUserId
-    ? await db
-        .select({ fullName: usersTable.fullName })
-        .from(usersTable)
-        .where(eq(usersTable.id, version.createdByUserId))
-        .limit(1)
-    : [];
-  const lockedByUser = version.lockedByUserId
-    ? await db
-        .select({ fullName: usersTable.fullName })
-        .from(usersTable)
-        .where(eq(usersTable.id, version.lockedByUserId))
-        .limit(1)
-    : [];
-  return {
-    ...version,
-    createdByName: createdByUser[0]?.fullName ?? null,
-    lockedByName: lockedByUser[0]?.fullName ?? null,
-  };
-}
 
 const projectVersionsRouter: IRouter = Router({ mergeParams: true });
 
@@ -47,48 +35,73 @@ projectVersionsRouter.get("/", requireAuth, async (req, res): Promise<void> => {
   res.json(enriched);
 });
 
+/** Create a new empty draft version (next version number, empty products, empty building row). */
+projectVersionsRouter.post("/", requireTenantEditor, async (req, res): Promise<void> => {
+  const { projectId } = req.params as { projectId: string };
+  const access = await requireWritableProject(projectId, req.session.tenantId!);
+  if (!access.ok) {
+    res.status(access.httpStatus).json({ error: access.error });
+    return;
+  }
+
+  const notes = req.body?.notes ?? null;
+  try {
+    const row = await createEmptyDraftVersion({
+      tenantId: req.session.tenantId!,
+      userId: req.session.userId!,
+      projectId,
+      notes: typeof notes === "string" ? notes : null,
+    });
+    res.status(201).json(await enrichVersion(row));
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Failed to create version";
+    if (msg === "Project not found") {
+      res.status(404).json({ error: msg });
+      return;
+    }
+    if (msg === "Project is archived") {
+      res.status(400).json({ error: msg });
+      return;
+    }
+    res.status(400).json({ error: msg });
+  }
+});
+
 projectVersionsRouter.post("/clone", requireTenantEditor, async (req, res): Promise<void> => {
   const { projectId } = req.params as { projectId: string };
-  if (!(await projectExistsForTenant(projectId, req.session.tenantId!))) {
-    res.status(404).json({ error: "Project not found" });
-    return;
-  }
-  const { sourceVersionId, notes } = req.body;
-  const [source] = await db.select().from(versionsTable).where(eq(versionsTable.id, sourceVersionId));
-  if (!source || source.projectId !== projectId) {
-    res.status(404).json({ error: "Source version not found" });
+  const access = await requireWritableProject(projectId, req.session.tenantId!);
+  if (!access.ok) {
+    res.status(access.httpStatus).json({ error: access.error });
     return;
   }
 
-  const existing = await db.select().from(versionsTable).where(eq(versionsTable.projectId, projectId));
-  const nextNumber = Math.max(...existing.map((v) => v.versionNumber)) + 1;
+  const { sourceVersionId, notes } = req.body as { sourceVersionId?: string; notes?: string | null };
+  if (!sourceVersionId) {
+    res.status(400).json({ error: "sourceVersionId is required" });
+    return;
+  }
 
-  const [newVersion] = await db
-    .insert(versionsTable)
-    .values({
-      id: newId(),
+  try {
+    const row = await cloneVersionFromSource({
+      tenantId: req.session.tenantId!,
+      userId: req.session.userId!,
       projectId,
-      versionNumber: nextNumber,
-      status: "draft",
-      createdByUserId: req.session.userId!,
+      sourceVersionId,
       notes: notes ?? null,
-    })
-    .returning();
-
-  const sourceProducts = await db.select().from(productsTable).where(eq(productsTable.versionId, sourceVersionId));
-  if (sourceProducts.length > 0) {
-    await db.insert(productsTable).values(
-      sourceProducts.map((p) => ({
-        ...p,
-        id: newId(),
-        versionId: newVersion.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })),
-    );
+    });
+    res.status(201).json(await enrichVersion(row));
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Clone failed";
+    if (msg === "Source version not found") {
+      res.status(404).json({ error: msg });
+      return;
+    }
+    if (msg.startsWith("Clone integrity:")) {
+      res.status(500).json({ error: msg });
+      return;
+    }
+    res.status(400).json({ error: msg });
   }
-
-  res.status(201).json(await enrichVersion(newVersion));
 });
 
 export { projectVersionsRouter };
@@ -118,10 +131,21 @@ versionRouter.post("/:versionId/lock", requireAuth, async (req, res): Promise<vo
     res.status(404).json({ error: "Version not found" });
     return;
   }
-  const { version } = row;
+  const { version, project } = row;
 
-  if (version.status === "locked") {
-    res.status(400).json({ error: "Version is already locked" });
+  if (project.archivedAt) {
+    res.status(400).json({ error: "Project is archived" });
+    return;
+  }
+
+  const pre = await evaluateVersionLockPreconditions(req.session.tenantId!, versionId);
+  if (!pre.ok) {
+    res.status(pre.httpStatus).json({
+      error: pre.error,
+      ...(pre.code !== undefined && { code: pre.code }),
+      ...(pre.summary !== undefined && { summary: pre.summary }),
+      ...(pre.failedChecks !== undefined && { failedChecks: pre.failedChecks }),
+    });
     return;
   }
 
@@ -136,6 +160,21 @@ versionRouter.post("/:versionId/lock", requireAuth, async (req, res): Promise<vo
     })
     .where(eq(versionsTable.id, versionId))
     .returning();
+
+  if (!locked) {
+    res.status(404).json({ error: "Version not found" });
+    return;
+  }
+
+  await recordVersionLocked({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    versionId: locked.id,
+    projectId: project.id,
+    versionNumber: locked.versionNumber,
+    notes: locked.notes ?? null,
+    lockedAt: locked.lockedAt!,
+  });
 
   res.json(await enrichVersion(locked));
 });

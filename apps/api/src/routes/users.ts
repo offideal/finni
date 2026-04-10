@@ -1,72 +1,90 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
-import { hashPassword } from "../lib/auth";
-import { newId } from "../lib/id";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireAuth";
+import {
+  createUserForTenant,
+  deleteUserFromTenant,
+  listUsersForTenant,
+  updateUserForTenant,
+} from "../services/userService";
 
 const router: IRouter = Router();
 
-router.get("/", requireAuth, async (req, res): Promise<void> => {
-  const users = await db.select({
-    id: usersTable.id,
-    email: usersTable.email,
-    fullName: usersTable.fullName,
-    role: usersTable.role,
-    tenantId: usersTable.tenantId,
-    createdAt: usersTable.createdAt,
-  }).from(usersTable).where(eq(usersTable.tenantId, req.session.tenantId!));
+/** Tenant-admin only: list users in the current tenant (session tenantId). */
+router.get("/", requireRole("admin"), async (req, res): Promise<void> => {
+  const users = await listUsersForTenant(req.session.tenantId!);
   res.json(users);
 });
 
 router.post("/", requireRole("admin"), async (req, res): Promise<void> => {
-  const { email, fullName, password, role } = req.body;
+  const { email, fullName, password, role } = req.body as Record<string, unknown>;
   if (!email || !fullName || !password || !role) {
     res.status(400).json({ error: "Missing required fields" });
     return;
   }
-  const passwordHash = await hashPassword(password);
-  const [user] = await db.insert(usersTable).values({
-    id: newId(),
-    email: email.toLowerCase().trim(),
-    fullName,
-    passwordHash,
-    role,
+
+  const result = await createUserForTenant({
     tenantId: req.session.tenantId!,
-  }).returning({
-    id: usersTable.id,
-    email: usersTable.email,
-    fullName: usersTable.fullName,
-    role: usersTable.role,
-    tenantId: usersTable.tenantId,
-    createdAt: usersTable.createdAt,
+    actorUserId: req.session.userId!,
+    email: String(email),
+    fullName: String(fullName),
+    password: String(password),
+    role: String(role),
   });
-  res.status(201).json(user);
+
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
+    return;
+  }
+
+  res.status(201).json(result.user);
 });
 
 router.patch("/:id", requireRole("admin"), async (req, res): Promise<void> => {
-  const { fullName, role } = req.body;
-  const updates: Record<string, unknown> = {};
-  if (fullName !== undefined) updates["fullName"] = fullName;
-  if (role !== undefined) updates["role"] = role;
+  const id = req.params["id"]!;
+  const { fullName, role } = req.body as { fullName?: string; role?: string };
 
-  const [user] = await db.update(usersTable)
-    .set(updates)
-    .where(and(eq(usersTable.id, req.params["id"]!), eq(usersTable.tenantId, req.session.tenantId!)))
-    .returning({
-      id: usersTable.id,
-      email: usersTable.email,
-      fullName: usersTable.fullName,
-      role: usersTable.role,
-      tenantId: usersTable.tenantId,
-      createdAt: usersTable.createdAt,
-    });
+  const result = await updateUserForTenant({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    userId: id,
+    fullName,
+    role,
+  });
 
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
     return;
   }
-  res.json(user);
+
+  if (id === req.session.userId) {
+    req.session.role = result.user.role;
+  }
+
+  res.json(result.user);
+});
+
+router.delete("/:id", requireRole("admin"), async (req, res): Promise<void> => {
+  const id = req.params["id"]!;
+
+  const result = await deleteUserFromTenant({
+    tenantId: req.session.tenantId!,
+    actorUserId: req.session.userId!,
+    userId: id,
+  });
+
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.message });
+    return;
+  }
+
+  if (id === req.session.userId) {
+    req.session.destroy(() => {
+      res.json({ message: "Deleted" });
+    });
+    return;
+  }
+
+  res.json({ message: "Deleted" });
 });
 
 export default router;

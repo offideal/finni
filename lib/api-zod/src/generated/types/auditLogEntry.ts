@@ -14,4 +14,5 @@ export interface AuditLogEntry {
   entityId: string;
   action: string;
   createdAt: Date;
+  diffPreview?: unknown | null;
 }

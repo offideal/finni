@@ -2,7 +2,12 @@ import React from "react";
 import {
   useGetReports,
   useGetVersion,
+  useGeneratePdfReport,
+  useGenerateXlsxReport,
+  getGetReportsQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { describeApiError, parseApiErrorJson } from "@/lib/apiErrorBody";
 import { format } from "date-fns";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProjectNav } from "@/components/layout/ProjectNav";
@@ -15,23 +20,48 @@ import { useToast } from "@/hooks/use-toast";
 export default function ProjectReports({ params }: { params: { id: string; versionId: string } }) {
   const { id: projectId, versionId } = params;
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: version } = useGetVersion(versionId, { query: { enabled: !!versionId } });
   const { data: reports, isLoading } = useGetReports(versionId, { query: { enabled: !!versionId } });
-  
-  // Note: we don't have mutation hooks specifically working properly in Orval sometimes without explicit mapping.
-  // Assuming the user just wants the UI. The instructions say: "Report download links should hit `/api/reports/{reportId}/download`"
+
+  const pdfMutation = useGeneratePdfReport({
+    mutation: {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: getGetReportsQueryKey(versionId) });
+        toast({ title: "PDF ready", description: "The report was generated. Download it from the list below." });
+      },
+      onError: (err) => {
+        const j = parseApiErrorJson(err);
+        const detail = [j?.error, j?.summary].filter(Boolean).join(" — ") || describeApiError(err);
+        toast({ title: "PDF export failed", description: detail, variant: "destructive" });
+      },
+    },
+  });
+
+  const xlsxMutation = useGenerateXlsxReport({
+    mutation: {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: getGetReportsQueryKey(versionId) });
+        toast({ title: "Excel ready", description: "The export was generated. Download it from the list below." });
+      },
+      onError: (err) => {
+        const j = parseApiErrorJson(err);
+        const detail = [j?.error, j?.summary].filter(Boolean).join(" — ") || describeApiError(err);
+        toast({ title: "Excel export failed", description: detail, variant: "destructive" });
+      },
+    },
+  });
 
   const isLocked = version?.status === "locked";
+  const exportBusy = pdfMutation.isPending || xlsxMutation.isPending;
 
   const handleGeneratePdf = () => {
-    toast({ title: "Generation started", description: "PDF report is being generated in the background." });
-    // hit generate PDF endpoint...
+    pdfMutation.mutate({ versionId });
   };
 
   const handleGenerateXlsx = () => {
-    toast({ title: "Generation started", description: "Excel report is being generated in the background." });
-    // hit generate Excel endpoint...
+    xlsxMutation.mutate({ versionId });
   };
 
   return (
@@ -68,8 +98,8 @@ export default function ProjectReports({ params }: { params: { id: string; versi
               <CardDescription>Standardized format for compliance submission.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" onClick={handleGeneratePdf}>
-                Generate New PDF
+              <Button className="w-full" onClick={handleGeneratePdf} disabled={exportBusy}>
+                {pdfMutation.isPending ? "Generating…" : "Generate New PDF"}
               </Button>
             </CardContent>
           </Card>
@@ -83,8 +113,8 @@ export default function ProjectReports({ params }: { params: { id: string; versi
               <CardDescription>Raw calculation data and product breakdowns.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" variant="outline" onClick={handleGenerateXlsx}>
-                Generate New Excel
+              <Button className="w-full" variant="outline" onClick={handleGenerateXlsx} disabled={exportBusy}>
+                {xlsxMutation.isPending ? "Generating…" : "Generate New Excel"}
               </Button>
             </CardContent>
           </Card>

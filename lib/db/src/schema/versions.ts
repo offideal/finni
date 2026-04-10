@@ -1,4 +1,4 @@
-import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -17,6 +17,7 @@ export const versionsTable = pgTable(
   },
   (table) => ({
     projectIdIdx: index("versions_project_id_idx").on(table.projectId),
+    projectVersionUnique: uniqueIndex("versions_project_version_uq").on(table.projectId, table.versionNumber),
   }),
 );
 

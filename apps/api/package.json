@@ -7,7 +7,8 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test src/domain/calculation.engine.test.ts src/domain/validationChecks.test.ts src/domain/ifcImport.test.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
@@ -19,11 +20,13 @@
     "drizzle-orm": "catalog:",
     "exceljs": "^4.4.0",
     "express": "^5",
+    "multer": "^1.4.5-lts.2",
     "express-session": "^1.19.0",
     "pdfkit": "^0.18.0",
     "pino": "^9",
     "pino-http": "^10",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "web-ifc": "0.0.68"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -33,6 +36,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/express-session": "^1.18.2",
+    "@types/multer": "^1.4.12",
     "@types/node": "catalog:",
     "@types/uuid": "^11.0.0",
     "esbuild": "^0.27.3",

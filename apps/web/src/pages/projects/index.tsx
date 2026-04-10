@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Plus, Building2, Globe2, Clock } from "lucide-react";
 import { 
@@ -40,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { AsyncView } from "@/components/feedback/AsyncView";
+import { useToast } from "@/hooks/use-toast";
 
 const createProjectSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -49,7 +50,8 @@ const createProjectSchema = z.object({
 
 export default function ProjectsPage() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, isTenantEditor } = useAuth();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isNewProjectOpen, setIsNewProjectOpen] = React.useState(false);
 
@@ -82,8 +84,12 @@ export default function ProjectsPage() {
       setIsNewProjectOpen(false);
       form.reset();
       setLocation(`/projects/${newProject.id}`);
-    } catch (error) {
-      console.error(error);
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Could not create project",
+        description: e instanceof Error ? e.message : "Request failed",
+      });
     }
   };
 
@@ -98,6 +104,7 @@ export default function ProjectsPage() {
             </p>
           </div>
           
+          {isTenantEditor ? (
           <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -150,7 +157,7 @@ export default function ProjectsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Building Type</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select type" />
@@ -187,6 +194,7 @@ export default function ProjectsPage() {
               </Form>
             </DialogContent>
           </Dialog>
+          ) : null}
         </div>
 
         <AsyncView loading={listLoading} error={listError}>
@@ -226,7 +234,7 @@ export default function ProjectsPage() {
                 <TableHead className="w-[30%]">Project Name</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Version</TableHead>
                 <TableHead className="text-right">Last Updated</TableHead>
               </TableRow>
             </TableHeader>
@@ -245,9 +253,14 @@ export default function ProjectsPage() {
                     onClick={() => setLocation(`/projects/${project.id}`)}
                   >
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {project.name}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span>{project.name}</span>
+                        {project.archivedAt ? (
+                          <Badge variant="outline" className="text-xs font-normal">
+                            Archived
+                          </Badge>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>

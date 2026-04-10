@@ -15,10 +15,13 @@ tags:
   - name: versions
   - name: products
   - name: emission-factors
+  - name: emission-sources
   - name: validation
   - name: calculations
   - name: reports
   - name: audit
+  - name: bim
+  - name: tenant-epd
 paths:
   /healthz:
     get:
@@ -91,6 +94,7 @@ paths:
     get:
       operationId: getUsers
       tags: [users]
+      summary: List tenant users (tenant-admin only)
       responses:
         "200":
           description: List of users
@@ -100,9 +104,16 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/User"
+        "403":
+          description: Not a tenant admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       operationId: createUser
       tags: [users]
+      summary: Create user in current tenant (tenant-admin only)
       requestBody:
         required: true
         content:
@@ -116,11 +127,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a tenant admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /users/{id}:
     patch:
       operationId: updateUser
       tags: [users]
+      summary: Update user in current tenant (tenant-admin only)
       parameters:
         - name: id
           in: path
@@ -140,6 +170,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error (e.g. last admin)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a tenant admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found in tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Remove user from current tenant (tenant-admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Validation error (e.g. last admin)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a tenant admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found in tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /projects:
     get:
@@ -223,13 +306,75 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Project"
+        "400":
+          description: Validation error or project archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
-  /projects/{projectId}/building:
+  /projects/{id}/archive:
+    post:
+      operationId: archiveProject
+      tags: [projects]
+      summary: Archive project (tenant editors)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Archived project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          description: Already archived or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{id}/unarchive:
+    post:
+      operationId: unarchiveProject
+      tags: [projects]
+      summary: Restore archived project (tenant editors)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restored project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          description: Not archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{projectId}/versions/{versionId}/building:
     get:
       operationId: getBuilding
       tags: [building]
+      summary: Building snapshot for a version
       parameters:
         - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
           in: path
           required: true
           schema:
@@ -250,8 +395,14 @@ paths:
     put:
       operationId: upsertBuilding
       tags: [building]
+      summary: Upsert building (draft version only; tenant editors)
       parameters:
         - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
           in: path
           required: true
           schema:
@@ -269,6 +420,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Building"
+        "400":
+          description: Validation or locked version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /projects/{projectId}/versions:
     get:
@@ -289,6 +446,35 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Version"
+    post:
+      operationId: createVersion
+      tags: [versions]
+      summary: Create empty draft version
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVersionRequest"
+      responses:
+        "201":
+          description: Created draft version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+        "400":
+          description: Invalid request or project archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /projects/{projectId}/versions/clone:
     post:
@@ -356,7 +542,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Version"
         "400":
-          description: Validation failed
+          description: Already locked, not a draft, or validation preconditions failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Caller is not allowed to lock (admin/reviewer only)
           content:
             application/json:
               schema:
@@ -403,6 +595,140 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Product"
+
+  /versions/{versionId}/products/import/preview:
+    post:
+      operationId: previewProductImport
+      tags: [products]
+      summary: Parse and validate an Excel file (draft versions only)
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "200":
+          description: Parsed rows and validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImportPreviewResponse"
+        "400":
+          description: Missing file or parse error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /versions/{versionId}/products/import/commit:
+    post:
+      operationId: commitProductImport
+      tags: [products]
+      summary: Import validated rows (re-validated server-side; draft only)
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductImportCommitRequest"
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImportCommitResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /versions/{versionId}/bim-import/preview:
+    post:
+      operationId: previewBimImport
+      tags: [bim]
+      summary: Parse IFC STEP file (draft versions only); preview building + product mapping
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        "200":
+          description: Parsed IFC preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BimImportPreviewResponse"
+        "400":
+          description: Missing file or parse error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /versions/{versionId}/bim-import/commit:
+    post:
+      operationId: commitBimImport
+      tags: [bim]
+      summary: Apply building and/or products from confirmed preview (re-validated server-side; draft only)
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BimImportCommitRequest"
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BimImportCommitResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /products/{id}:
     patch:
@@ -479,6 +805,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Case-insensitive substring match on source name and category
       responses:
         "200":
           description: List of emission factors
@@ -488,6 +819,166 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/EmissionFactor"
+
+  /emission-sources:
+    get:
+      operationId: getEmissionSources
+      tags: [emission-sources]
+      summary: List enabled external CO₂ integrations (catalog drivers)
+      responses:
+        "200":
+          description: External source registry entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ExternalCo2SourceInfo"
+
+  /emission-sources/{key}/sync:
+    post:
+      operationId: syncEmissionSource
+      tags: [emission-sources]
+      summary: Sync external factors into tenant catalog (admin only)
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sync completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalCo2SyncResponse"
+        "400":
+          description: Source disabled or not implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Unknown source key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenant/emission-factors/managed:
+    get:
+      operationId: getTenantEmissionFactorsManaged
+      tags: [tenant-epd]
+      summary: List tenant-authored EPD records (admin/editor); includes archived
+      responses:
+        "200":
+          description: Emission factor rows for this tenant only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmissionFactor"
+        "403":
+          description: Not allowed to manage tenant EPDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenant/emission-factors:
+    post:
+      operationId: createTenantEmissionFactor
+      tags: [tenant-epd]
+      summary: Create tenant-specific EPD factor (sourceType EPD)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantEpdCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionFactor"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenant/emission-factors/{id}:
+    patch:
+      operationId: updateTenantEmissionFactor
+      tags: [tenant-epd]
+      summary: Update tenant EPD record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantEpdUpdateRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionFactor"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found or not a manageable tenant EPD row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /tenant/emission-factors/{id}/archive:
+    post:
+      operationId: archiveTenantEmissionFactor
+      tags: [tenant-epd]
+      summary: Archive (deactivate) tenant EPD record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmissionFactor"
+        "400":
+          description: Already archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /versions/{versionId}/validation:
     get:
@@ -612,13 +1103,50 @@ paths:
             type: string
       responses:
         "200":
-          description: Audit log entries
+          description: Audit log entries for the project (project, versions, building, products, exports)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/AuditLogEntry"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /projects/{projectId}/versions/{versionId}/audit:
+    get:
+      operationId: getVersionAuditLog
+      tags: [audit]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit log entries for this version only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /dashboard/summary:
     get:
@@ -646,6 +1174,26 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
+          description: Machine-readable reason when applicable (e.g. VERSION_LOCKED, LOCK_PRECONDITIONS_FAILED).
+        summary:
+          type: string
+        failedChecks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              message:
+                type: string
+            required: [id, message]
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Per-field validation messages (e.g. product PATCH/POST).
       required: [error]
 
     MessageResponse:
@@ -750,6 +1298,11 @@ components:
           type: string
         buildingType:
           type: string
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When set, project is archived (read-only for data changes until restored)
         latestVersionStatus:
           type: string
           nullable: true
@@ -779,6 +1332,10 @@ components:
           type: string
         createdByUserId:
           type: string
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -825,7 +1382,7 @@ components:
       properties:
         id:
           type: string
-        projectId:
+        versionId:
           type: string
         grossAreaM2:
           type: number
@@ -834,17 +1391,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Space"
+        createdAt:
+          type: string
+          format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, projectId, spaces, updatedAt]
+      required: [id, versionId, spaces, createdAt, updatedAt]
 
     UpsertBuildingRequest:
       type: object
       properties:
         grossAreaM2:
           type: number
-          nullable: true
+          description: Required on save; must be non-negative
         spaces:
           type: array
           items:
@@ -857,6 +1417,7 @@ components:
               areaM2:
                 type: number
             required: [name, areaM2]
+      required: [grossAreaM2, spaces]
 
     Version:
       type: object
@@ -902,6 +1463,13 @@ components:
           type: string
       required: [sourceVersionId]
 
+    CreateVersionRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          description: Optional label / notes for the new draft
+
     LockVersionRequest:
       type: object
       properties:
@@ -931,7 +1499,7 @@ components:
           nullable: true
         emissionSourceType:
           type: string
-          enum: [generic, EPD]
+          enum: [generic, EPD, product, external]
           nullable: true
         emissionSourceName:
           type: string
@@ -942,6 +1510,14 @@ components:
         co2ePerUnitSnapshot:
           type: number
           nullable: true
+        emissionExternalSourceKey:
+          type: string
+          nullable: true
+          description: External integration key snapshotted at factor attach time
+        emissionExternalRecordId:
+          type: string
+          nullable: true
+          description: Stable record id from external dataset at attach time
         moduleA1A3Share:
           type: number
         moduleA4Share:
@@ -978,6 +1554,210 @@ components:
           enum: [kg, m2, m3]
           nullable: true
       required: [name, category]
+
+    ProductImportRow:
+      type: object
+      description: Validated product row (same rules as create + module shares)
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        quantityValue:
+          type: number
+          nullable: true
+        quantityUnit:
+          type: string
+          nullable: true
+        moduleA1A3Share:
+          type: number
+        moduleA4Share:
+          type: number
+        moduleA5Share:
+          type: number
+        moduleBShare:
+          type: number
+        moduleCShare:
+          type: number
+      required:
+        [name, category, moduleA1A3Share, moduleA4Share, moduleA5Share, moduleBShare, moduleCShare]
+
+    ProductImportPreviewRow:
+      type: object
+      properties:
+        excelRow:
+          type: integer
+        ok:
+          type: boolean
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        data:
+          $ref: "#/components/schemas/ProductImportRow"
+      required: [excelRow, ok]
+
+    ProductImportPreviewResponse:
+      type: object
+      properties:
+        worksheetName:
+          type: string
+        structureOk:
+          type: boolean
+        structureError:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImportPreviewRow"
+        validCount:
+          type: integer
+        errorCount:
+          type: integer
+      required: [worksheetName, structureOk, rows, validCount, errorCount]
+
+    ProductImportCommitRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImportRow"
+      required: [rows]
+
+    ProductImportCommitResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+        productIds:
+          type: array
+          items:
+            type: string
+      required: [imported, productIds]
+
+    BimImportPreviewSpace:
+      type: object
+      properties:
+        sourceExpressId:
+          type: integer
+        name:
+          type: string
+        areaM2:
+          type: number
+          nullable: true
+      required: [sourceExpressId, name]
+
+    BimImportPreviewProductRow:
+      type: object
+      properties:
+        sourceExpressId:
+          type: integer
+        ifcType:
+          type: string
+        ok:
+          type: boolean
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        data:
+          $ref: "#/components/schemas/ProductImportRow"
+      required: [sourceExpressId, ifcType, ok]
+
+    BimImportPreviewResponse:
+      type: object
+      properties:
+        structureOk:
+          type: boolean
+        structureError:
+          type: string
+          nullable: true
+        schemaName:
+          type: string
+          nullable: true
+        scopeNotes:
+          type: array
+          items:
+            type: string
+        buildingName:
+          type: string
+          nullable: true
+        suggestedGrossAreaM2:
+          type: number
+          nullable: true
+        spaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/BimImportPreviewSpace"
+        warnings:
+          type: array
+          items:
+            type: string
+        productRows:
+          type: array
+          items:
+            $ref: "#/components/schemas/BimImportPreviewProductRow"
+        stats:
+          type: object
+          properties:
+            spaceCount:
+              type: integer
+            productCandidates:
+              type: integer
+            productOk:
+              type: integer
+            productError:
+              type: integer
+          required: [spaceCount, productCandidates, productOk, productError]
+      required: [structureOk, scopeNotes, spaces, warnings, productRows, stats]
+
+    BimImportCommitBuilding:
+      type: object
+      properties:
+        grossAreaM2:
+          type: number
+        spaces:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              areaM2:
+                type: number
+            required: [name, areaM2]
+      required: [grossAreaM2, spaces]
+
+    BimImportCommitRequest:
+      type: object
+      properties:
+        applyBuilding:
+          type: boolean
+        building:
+          $ref: "#/components/schemas/BimImportCommitBuilding"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImportRow"
+      required: [applyBuilding, products]
+
+    BimImportCommitResponse:
+      type: object
+      properties:
+        importedProducts:
+          type: integer
+        productIds:
+          type: array
+          items:
+            type: string
+        buildingUpdated:
+          type: boolean
+      required: [importedProducts, productIds, buildingUpdated]
 
     UpdateProductRequest:
       type: object
@@ -1018,7 +1798,7 @@ components:
           description: Null = platform-wide catalog; set = tenant-owned factor
         sourceType:
           type: string
-          enum: [generic, EPD]
+          enum: [generic, EPD, product, external]
         sourceName:
           type: string
         category:
@@ -1030,7 +1810,83 @@ components:
           type: number
         active:
           type: boolean
+        externalSourceKey:
+          type: string
+          nullable: true
+        externalRecordId:
+          type: string
+          nullable: true
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
       required: [id, sourceType, sourceName, category, unit, co2ePerUnit, active]
+
+    ExternalCo2SourceInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+          nullable: true
+        hasHandler:
+          type: boolean
+      required: [id, key, displayName, hasHandler]
+
+    ExternalCo2SyncResponse:
+      type: object
+      properties:
+        upserted:
+          type: integer
+        sourceKey:
+          type: string
+      required: [upserted, sourceKey]
+
+    TenantEpdCreateRequest:
+      type: object
+      properties:
+        sourceName:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+          enum: [kg, m2, m3]
+        co2ePerUnit:
+          type: number
+          minimum: 0
+      required: [sourceName, category, unit, co2ePerUnit]
+
+    TenantEpdUpdateRequest:
+      type: object
+      properties:
+        sourceName:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+          enum: [kg, m2, m3]
+        co2ePerUnit:
+          type: number
+          minimum: 0
+
+    ValidationFixTarget:
+      type: object
+      description: Suggested navigation target relative to project version routes.
+      properties:
+        kind:
+          type: string
+          enum: [building, products, calculation, product]
+        productId:
+          type: string
+          description: Set when kind is product
+      required: [kind]
 
     ValidationCheck:
       type: object
@@ -1043,21 +1899,48 @@ components:
           type: string
         severity:
           type: string
-          enum: [error, warning]
-      required: [id, passed, message, severity]
+          description: error = blocking (lock), warning = review, info = contextual (never blocks lock)
+          enum: [error, warning, info]
+        group:
+          type: string
+          enum: [project, building, products, calculation, data_quality]
+        fixTarget:
+          $ref: "#/components/schemas/ValidationFixTarget"
+      required: [id, passed, message, severity, group]
+
+    ValidationSummary:
+      type: object
+      properties:
+        blockingFailed:
+          type: integer
+        blockingPassed:
+          type: integer
+        warningFailed:
+          type: integer
+        warningPassed:
+          type: integer
+        infoFailed:
+          type: integer
+        infoPassed:
+          type: integer
+      required: [blockingFailed, blockingPassed, warningFailed, warningPassed, infoFailed, infoPassed]
 
     ValidationResult:
       type: object
       properties:
         versionId:
           type: string
+        projectId:
+          type: string
         passed:
           type: boolean
+        summary:
+          $ref: "#/components/schemas/ValidationSummary"
         checks:
           type: array
           items:
             $ref: "#/components/schemas/ValidationCheck"
-      required: [versionId, passed, checks]
+      required: [versionId, projectId, passed, summary, checks]
 
     ModuleBreakdown:
       type: object
@@ -1080,9 +1963,73 @@ components:
             required: [productId, productName, co2eContribution]
       required: [module, co2eTotal, productBreakdown]
 
+    CalculationSummary:
+      type: object
+      properties:
+        totalProducts:
+          type: integer
+        includedInCalculation:
+          type: integer
+        excludedIncomplete:
+          type: integer
+      required: [totalProducts, includedInCalculation, excludedIncomplete]
+
+    CalculationProductLine:
+      type: object
+      description: Product row snapshot used for CO₂e engine output (deterministic).
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        quantityValue:
+          type: number
+          nullable: true
+        co2ePerUnitSnapshot:
+          type: number
+          nullable: true
+        moduleA1A3Share:
+          type: number
+        moduleA4Share:
+          type: number
+        moduleA5Share:
+          type: number
+        moduleBShare:
+          type: number
+        moduleCShare:
+          type: number
+        co2eTotal:
+          type: number
+          nullable: true
+        eligibility:
+          type: string
+          enum: [included, excluded_incomplete]
+        exclusionReason:
+          type: string
+          nullable: true
+        baseCo2e:
+          type: number
+          nullable: true
+      required:
+        - id
+        - name
+        - moduleA1A3Share
+        - moduleA4Share
+        - moduleA5Share
+        - moduleBShare
+        - moduleCShare
+        - co2eTotal
+        - eligibility
+
     CalculationResult:
       type: object
       properties:
+        engineVersion:
+          type: string
+          description: Server calculation engine semver (same inputs + version ⇒ same outputs).
+        computedAt:
+          type: string
+          format: date-time
         versionId:
           type: string
         grandTotal:
@@ -1094,8 +2041,10 @@ components:
         products:
           type: array
           items:
-            $ref: "#/components/schemas/Product"
-      required: [versionId, grandTotal, modules, products]
+            $ref: "#/components/schemas/CalculationProductLine"
+        summary:
+          $ref: "#/components/schemas/CalculationSummary"
+      required: [engineVersion, computedAt, versionId, grandTotal, modules, products, summary]
 
     Report:
       type: object
@@ -1135,6 +2084,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        diffPreview:
+          description: Sanitized, size-limited JSON snapshot (no passwords; strings truncated)
+          nullable: true
       required: [id, userId, entityType, entityId, action, createdAt]
 
     DashboardSummary:

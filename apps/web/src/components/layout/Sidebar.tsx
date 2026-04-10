@@ -1,14 +1,14 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Building2, Settings, LogOut, BarChart3 } from "lucide-react";
+import { Building2, Settings, LogOut, BarChart3, Leaf } from "lucide-react";
 import { useLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, canManageTenantEpd } = useAuth();
   const logoutMutation = useLogout();
   const queryClient = useQueryClient();
 
@@ -24,7 +24,8 @@ export function Sidebar() {
 
   const navItems = [
     { href: "/projects", label: "Projects", icon: Building2 },
-    ...(isAdmin ? [{ href: "/settings/users", label: "Settings", icon: Settings }] : []),
+    ...(canManageTenantEpd ? [{ href: "/settings/epd", label: "Tenant EPDs", icon: Leaf }] : []),
+    ...(isAdmin ? [{ href: "/settings/users", label: "Users", icon: Settings }] : []),
   ];
 
   return (

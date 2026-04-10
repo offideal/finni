@@ -12,4 +12,5 @@ export type ValidationCheckSeverity =
 export const ValidationCheckSeverity = {
   error: "error",
   warning: "warning",
+  info: "info",
 } as const;

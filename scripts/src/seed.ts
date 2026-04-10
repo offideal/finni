@@ -1,4 +1,4 @@
-import { db, tenantsTable, usersTable, emissionFactorsTable } from "@workspace/db";
+import { db, tenantsTable, usersTable, emissionFactorsTable, externalCo2SourcesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -50,6 +50,18 @@ async function main() {
       tenantId: TENANT_ID,
     });
     console.log("Created editor user: editor@finni.fi / editor123");
+  }
+
+  const [existingExtSrc] = await db.select().from(externalCo2SourcesTable).where(eq(externalCo2SourcesTable.key, "co2ref_static"));
+  if (!existingExtSrc) {
+    await db.insert(externalCo2SourcesTable).values({
+      id: uuidv4(),
+      key: "co2ref_static",
+      displayName: "CO₂ Reference (static bundle)",
+      enabled: true,
+      description: "Deterministic placeholder bundle; admins can sync into the tenant catalog. Replace with a live API integration when ready.",
+    });
+    console.log("Registered external CO₂ source: co2ref_static");
   }
 
   const [existingFactors] = await db.select().from(emissionFactorsTable).limit(1);
